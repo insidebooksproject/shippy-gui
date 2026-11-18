@@ -1,5 +1,6 @@
 """Unit tests for configuration helper functions."""
 
+import os
 import tempfile
 import unittest
 from pathlib import Path
@@ -44,9 +45,11 @@ class ConfigHelperTests(unittest.TestCase):
             {**BASE_CONFIG_DICT, "ui": {"log_file": "custom.log"}}
         )
 
-        log_path = resolve_log_path("/tmp/example/config.ini", config)
+        config_dir = os.path.join(os.sep, "tmp", "example")
 
-        self.assertEqual(log_path, "/tmp/example/custom.log")
+        log_path = resolve_log_path(os.path.join(config_dir, "config.ini"), config)
+
+        self.assertEqual(log_path, os.path.join(config_dir, "custom.log"))
 
 
 class ParcelConfigTests(unittest.TestCase):
