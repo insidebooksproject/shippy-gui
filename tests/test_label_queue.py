@@ -6,7 +6,7 @@ import unittest
 from datetime import datetime, timedelta
 from unittest.mock import patch
 
-from PySide6.QtWidgets import QApplication, QMessageBox
+from PySide6.QtWidgets import QApplication, QLabel, QMessageBox
 
 from shippy_gui.core import label_journal
 from shippy_gui.core.models import RecipientAddress
@@ -207,6 +207,9 @@ class PendingLabelsIndicatorTests(unittest.TestCase):
                 make_record(tracking_code="9400TWO", status="check_printer"),
             ]
         )
+        intro = " ".join(label.text() for label in dialog.findChildren(QLabel))
+        self.assertIn("2 label(s) waiting to print.", intro)
+        self.assertNotIn("again", intro)
         table = dialog.table
         self.assertEqual(table.rowCount(), 2)
         self.assertEqual(

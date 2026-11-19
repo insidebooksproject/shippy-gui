@@ -78,8 +78,8 @@ class PendingLabelsDialog(QDialog):  # pylint: disable=too-few-public-methods
         layout = QVBoxLayout(self)
         layout.addWidget(
             QLabel(
-                "These labels are already bought. Do NOT create them again: "
-                "queued labels print automatically when the printer works."
+                f"{len(records)} label(s) waiting to print. Queued labels print "
+                "automatically when the printer works."
             )
         )
         self.table = QTableWidget(len(records), len(self.COLUMNS), self)
