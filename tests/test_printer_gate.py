@@ -157,7 +157,6 @@ class ShipmentFlowPrinterGateTests(unittest.TestCase):
             get_shipment_service=Mock,
             get_logo_path=lambda: None,
             worker_factory=worker_factory,
-            find_duplicates=lambda identity: [],
             confirm_printer=self.gate,
         )
 

@@ -401,8 +401,8 @@ class ShippingCoordinatorTests(unittest.TestCase):
             ("Jane Doe, Huntsville", "TRACK123", "The label did NOT print: saved"),
         )
 
-    def _guarded_coordinator(self, answer):
-        """A coordinator whose duplicate question is answered with ``answer``."""
+    def _flow_coordinator(self):
+        """A coordinator with a filled-in form and fake workers."""
         address_form = Mock(spec=AddressForm)
         address_form.validate_required.return_value = None
         address_form.get_address.return_value = RecipientAddress(
@@ -418,7 +418,6 @@ class ShippingCoordinatorTests(unittest.TestCase):
         shipment_controls.printer_name = "Alpha 20d1:7008"
         status_label = QLabel()
         workers: list[FakeWorker] = []
-        confirm = Mock(return_value=answer)
         done = Mock()
 
         def worker_factory(**kwargs):
@@ -436,52 +435,27 @@ class ShippingCoordinatorTests(unittest.TestCase):
             get_shipment_service=Mock,
             get_logo_path=lambda: None,
             worker_factory=worker_factory,
-            confirm_duplicate=confirm,
             on_shipment_done=done,
         )
-        return coordinator, workers, confirm, status_label, shipment_controls, done
+        return coordinator, workers, status_label, shipment_controls, done
 
     @patch(
         "shippy_gui.shipping_coordinators.QApplication.keyboardModifiers",
         return_value=Qt.KeyboardModifier.NoModifier,
     )
-    def test_duplicate_declined_buys_nothing(self, _mock_modifiers):
-        self.journal.duplicates = [make_record()]
-        coordinator, workers, confirm, status_label, controls, _done = (
-            self._guarded_coordinator(answer=False)
-        )
+    @patch("shippy_gui.shipping_coordinators.QMessageBox")
+    def test_same_recipient_again_creates_label_without_asking(
+        self, mock_box, _mock_modifiers
+    ):
+        # Several boxes to one address is normal work: no duplicate question.
+        self.journal.pending = [make_record(status="check_printer")]
+        coordinator, workers, _label, controls, _done = self._flow_coordinator()
 
-        with self.assertLogs("shippy_gui.shipping_coordinators", "WARNING") as logs:
-            coordinator.create_label()
+        coordinator.create_label()
 
-        self.assertEqual(workers, [])  # no worker: no postage bought
-        controls.set_enabled.assert_not_called()
-        confirm.assert_called_once()
-        self.assertEqual(confirm.call_args.args[1], self.journal.duplicates)
-        self.assertEqual(
-            self.journal.duplicate_queries,
-            [("jane doe|123 prison rd|huntsville|tx|77340", 12)],
-        )
-        self.assertIn("NOT to create another label", logs.output[0])
-        self.assertIn("9400OLD", logs.output[0])
-        self.assertIn("Label NOT created", status_label.text())
-        self.assertIn("9400OLD", status_label.text())
-
-    @patch(
-        "shippy_gui.shipping_coordinators.QApplication.keyboardModifiers",
-        return_value=Qt.KeyboardModifier.NoModifier,
-    )
-    def test_duplicate_confirmed_creates_label(self, _mock_modifiers):
-        self.journal.duplicates = [make_record()]
-        coordinator, workers, confirm, _label, controls, _done = (
-            self._guarded_coordinator(answer=True)
-        )
-
-        with self.assertLogs("shippy_gui.shipping_coordinators", "WARNING") as logs:
-            coordinator.create_label()
-
-        confirm.assert_called_once()
-        self.assertIn("to create another label", logs.output[0])
+        mock_box.assert_not_called()
+        mock_box.question.assert_not_called()
+        mock_box.warning.assert_not_called()
         self.assertEqual(len(workers), 1)
         self.assertTrue(workers[0].started)
         self.assertEqual(workers[0].kwargs["to_address"].name, "Jane Doe")
@@ -491,14 +465,11 @@ class ShippingCoordinatorTests(unittest.TestCase):
         "shippy_gui.shipping_coordinators.QApplication.keyboardModifiers",
         return_value=Qt.KeyboardModifier.NoModifier,
     )
-    def test_no_duplicate_skips_question_and_refreshes_when_done(self, _mock_modifiers):
-        coordinator, workers, confirm, _label, _controls, done = (
-            self._guarded_coordinator(answer=False)
-        )
+    def test_refreshes_when_done(self, _mock_modifiers):
+        coordinator, workers, _label, _controls, done = self._flow_coordinator()
 
         coordinator.create_label()
 
-        confirm.assert_not_called()
         self.assertEqual(len(workers), 1)
         done.assert_not_called()
         workers[0].finished.emit()
@@ -627,9 +598,7 @@ class ShippingCoordinatorTests(unittest.TestCase):
     )
 
     def test_recipient_change_clears_box_answer(self):
-        coordinator, _workers, _confirm, _label, controls, _done = (
-            self._guarded_coordinator(answer=True)
-        )
+        coordinator, _workers, _label, controls, _done = self._flow_coordinator()
         # pylint: disable=protected-access
         coordinator._address_form.recipient_changed.connect.assert_called_once_with(
             coordinator._on_recipient_changed
@@ -641,9 +610,7 @@ class ShippingCoordinatorTests(unittest.TestCase):
         controls.clear_small_box.assert_called_once_with()
 
     def test_clearing_a_ticked_box_on_recipient_change_warns(self):
-        coordinator, _workers, _confirm, status_label, controls, _done = (
-            self._guarded_coordinator(answer=True)
-        )
+        coordinator, _workers, status_label, controls, _done = self._flow_coordinator()
         controls.clear_small_box.return_value = True
 
         coordinator._on_recipient_changed()  # pylint: disable=protected-access
@@ -654,9 +621,7 @@ class ShippingCoordinatorTests(unittest.TestCase):
         self.assertIn(STATUS_COLORS["warning"], status_label.styleSheet())
 
     def test_recipient_change_with_unticked_box_says_nothing(self):
-        coordinator, _workers, _confirm, status_label, controls, _done = (
-            self._guarded_coordinator(answer=True)
-        )
+        coordinator, _workers, status_label, controls, _done = self._flow_coordinator()
         status_label.setText("Address loaded successfully")
         controls.clear_small_box.return_value = False
 
@@ -666,9 +631,7 @@ class ShippingCoordinatorTests(unittest.TestCase):
 
     def test_success_with_real_widgets_shows_no_cleared_notice(self):
         """A label's own form clearing must not report a cleared box answer."""
-        coordinator, _workers, _confirm, status_label, _controls, _done = (
-            self._guarded_coordinator(answer=True)
-        )
+        coordinator, _workers, status_label, _controls, _done = self._flow_coordinator()
         form = AddressForm()
         with patch(
             "shippy_gui.widgets.shipment_controls.get_available_printers",
@@ -691,25 +654,8 @@ class ShippingCoordinatorTests(unittest.TestCase):
         "shippy_gui.shipping_coordinators.QApplication.keyboardModifiers",
         return_value=Qt.KeyboardModifier.NoModifier,
     )
-    def test_duplicate_declined_clears_box_answer(self, _mock_modifiers):
-        self.journal.duplicates = [make_record()]
-        coordinator, _workers, _confirm, _label, controls, _done = (
-            self._guarded_coordinator(answer=False)
-        )
-
-        with self.assertLogs("shippy_gui.shipping_coordinators", "WARNING"):
-            coordinator.create_label()
-
-        controls.clear_small_box.assert_called_once_with()
-
-    @patch(
-        "shippy_gui.shipping_coordinators.QApplication.keyboardModifiers",
-        return_value=Qt.KeyboardModifier.NoModifier,
-    )
     def test_printer_gate_cancel_clears_box_answer(self, _mock_modifiers):
-        coordinator, workers, _confirm, _label, controls, _done = (
-            self._guarded_coordinator(answer=True)
-        )
+        coordinator, workers, _label, controls, _done = self._flow_coordinator()
         # pylint: disable=protected-access
         coordinator._confirm_printer = Mock(return_value=PrinterGateResult.CANCELED)
 
@@ -724,9 +670,7 @@ class ShippingCoordinatorTests(unittest.TestCase):
         return_value=Qt.KeyboardModifier.NoModifier,
     )
     def test_shipment_error_clears_box_answer(self, _mock_modifiers, _critical):
-        coordinator, workers, _confirm, _label, controls, _done = (
-            self._guarded_coordinator(answer=True)
-        )
+        coordinator, workers, _label, controls, _done = self._flow_coordinator()
         coordinator.create_label()
 
         workers[0].error.emit("Shipment creation failed: boom")
@@ -738,9 +682,7 @@ class ShippingCoordinatorTests(unittest.TestCase):
         return_value=Qt.KeyboardModifier.NoModifier,
     )
     def test_create_label_drops_stale_rate_summary(self, _mock_modifiers):
-        coordinator, workers, _confirm, status_label, _controls, _done = (
-            self._guarded_coordinator(answer=True)
-        )
+        coordinator, workers, status_label, _controls, _done = self._flow_coordinator()
         coordinator._rate_summary = self._RATES  # pylint: disable=protected-access
 
         coordinator.create_label()
@@ -750,9 +692,7 @@ class ShippingCoordinatorTests(unittest.TestCase):
 
     @patch("shippy_gui.shipping_coordinators.QMessageBox.warning")
     def test_check_printer_warning_keeps_rates_visible(self, _warning):
-        coordinator, _workers, _confirm, status_label, _controls, _done = (
-            self._guarded_coordinator(answer=True)
-        )
+        coordinator, _workers, status_label, _controls, _done = self._flow_coordinator()
         coordinator.worker = Mock(rate_summary=self._RATES)
 
         # pylint: disable=protected-access
@@ -763,9 +703,7 @@ class ShippingCoordinatorTests(unittest.TestCase):
 
     @patch("shippy_gui.shipping_coordinators.show_label_queued")
     def test_queued_label_keeps_rates_visible(self, _show_queued):
-        coordinator, _workers, _confirm, status_label, _controls, _done = (
-            self._guarded_coordinator(answer=True)
-        )
+        coordinator, _workers, status_label, _controls, _done = self._flow_coordinator()
         coordinator.worker = Mock(rate_summary=self._RATES)
         shipment = Mock(id="shp_1", tracking_code="TRACK1")
         result = ShipmentWorkflowResult(
@@ -780,9 +718,7 @@ class ShippingCoordinatorTests(unittest.TestCase):
         self.assertTrue(status_label.text().endswith(self._RATES.text))
 
     def test_validation_error_clears_box_answer(self):
-        coordinator, workers, _confirm, status_label, controls, _done = (
-            self._guarded_coordinator(answer=True)
-        )
+        coordinator, workers, status_label, controls, _done = self._flow_coordinator()
         # pylint: disable=protected-access
         coordinator._address_form.validate_required.return_value = (
             "Please enter ZIP code"
@@ -796,9 +732,7 @@ class ShippingCoordinatorTests(unittest.TestCase):
 
     @patch("shippy_gui.shipping_coordinators.QMessageBox.critical")
     def test_missing_services_clears_box_answer(self, mock_critical):
-        coordinator, workers, _confirm, _label, controls, _done = (
-            self._guarded_coordinator(answer=True)
-        )
+        coordinator, workers, _label, controls, _done = self._flow_coordinator()
         coordinator._get_shipment_service = (
             lambda: None
         )  # pylint: disable=protected-access

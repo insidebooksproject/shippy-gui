@@ -1,6 +1,5 @@
-"""Widgets that keep volunteers from creating a label twice.
+"""Widgets about labels that are bought but not printed yet.
 
-- the duplicate-label question asked before postage is bought,
 - the "Label queued" dialog shown when a label was saved to print later,
 - the "Waiting to print: N" status-bar indicator and its details dialog.
 """
@@ -28,7 +27,6 @@ from shippy_gui.core import label_journal
 
 logger = logging.getLogger(__name__)
 
-DUPLICATE_TITLE = "Label Already Created"
 QUEUED_TITLE = "Label queued — do not create it again"
 PENDING_TITLE = "Labels Waiting To Print"
 
@@ -40,28 +38,6 @@ STATUS_NAMES = {
     label_journal.STATUS_CHECK_PRINTER: "Check the printer",
     label_journal.STATUS_PURCHASED: "Bought, not printed yet",
 }
-
-
-def build_duplicate_box(
-    parent: Optional[QWidget], records: Sequence[Any]
-) -> QMessageBox:
-    """The "already created" question; No is the default answer."""
-    box = QMessageBox(parent)
-    box.setIcon(QMessageBox.Icon.Warning)
-    box.setWindowTitle(DUPLICATE_TITLE)
-    box.setText(label_journal.duplicate_question(records))
-    box.setStandardButtons(
-        QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
-    )
-    box.setDefaultButton(QMessageBox.StandardButton.No)
-    box.setEscapeButton(QMessageBox.StandardButton.No)
-    return box
-
-
-def confirm_duplicate_label(parent: Optional[QWidget], records: Sequence[Any]) -> bool:
-    """Ask whether to create another label; True only on an explicit Yes."""
-    box = build_duplicate_box(parent, records)
-    return box.exec() == QMessageBox.StandardButton.Yes
 
 
 def build_label_queued_box(
