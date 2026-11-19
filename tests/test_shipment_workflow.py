@@ -14,6 +14,7 @@ from journal_fakes import install_fake_journal
 from shippy_gui.core import label_journal
 from shippy_gui.core.models import RecipientAddress, ReturnAddressConfig
 from shippy_gui.core.shipment_workflow import (
+    CHECK_PRINTER_ADVICE,
     ShipmentWorkflowInput,
     ShipmentWorkflow,
     ShipmentWorkflowStatus,
@@ -263,8 +264,9 @@ class ShipmentWorkflowTests(unittest.TestCase):
                 self.assertIsNone(result.saved_label_path)
                 self.assertIsNotNone(result.print_warning)
                 self.assertIn(str(error), result.print_warning)
-                self.assertIn("may or may NOT have printed", result.message)
-                self.assertIn("NOT refunded", result.message)
+                self.assertIn("may not have printed", result.message)
+                self.assertIn(CHECK_PRINTER_ADVICE, result.message)
+                self.assertNotIn("refunded.", result.message)
                 self.assertIn("TRACK123", result.message)
                 self.assertEqual(self.journal.statuses()[-1], "check_printer")
 
@@ -329,16 +331,12 @@ class ShipmentWorkflowTests(unittest.TestCase):
         self.assertTrue(result.saved_label_path.exists())
         self.assertEqual(result.saved_label_path.parent, watch_dir / "to-print")
         self.assertIn("TRACK123", result.saved_label_path.name)
-        self.assertIn("did NOT print", result.message)
-        self.assertIn("CreateDC failed", result.message)
-        self.assertIn(str(result.saved_label_path), result.message)
-        self.assertIn("label watcher", result.message)
-        self.assertIn("NOT refunded", result.message)
-        self.assertIn("TRACK123", result.message)
-        # R5: tell the volunteer to remove the queued file before printing it
-        # by hand or refunding, so the watcher does not print it too.
-        self.assertIn("DELETE it from", result.message)
-        self.assertIn(str(watch_dir / "to-print"), result.message)
+        self.assertEqual(
+            result.message,
+            "The label didn't print (CreateDC failed). It was saved to "
+            f"{result.saved_label_path} and will print automatically when the "
+            "printer is working. Tracking: TRACK123",
+        )
         self.assertIn("TRACK123", backend.print_image.call_args.kwargs["job_name"])
 
     def test_print_prepared_label_without_printer_saves_label_without_printing(self):
@@ -470,7 +468,8 @@ class ShipmentWorkflowTests(unittest.TestCase):
         self.assertFalse(result.refund_requested)
         self.service.refund_shipment.assert_not_called()
         self.assertIsNotNone(result.print_warning)
-        self.assertIn("may NOT have printed", result.message)
+        self.assertIn("may not have printed", result.message)
+        self.assertIn(CHECK_PRINTER_ADVICE, result.message)
         self.assertIn("'error'", result.message)
         self.assertIn("Alpha 20d1:7008", result.message)
         self.assertIn("TRACK123", result.message)
@@ -499,8 +498,12 @@ class ShipmentWorkflowTests(unittest.TestCase):
                 self.service.refund_shipment.assert_not_called()
                 self.assertIsNone(result.saved_label_path)
                 self.assertIsNotNone(result.print_warning)
-                self.assertIn("may NOT have printed", result.message)
-                self.assertIn("check the printer before reprinting", result.message)
+                self.assertIn("may not have printed", result.message)
+                self.assertIn(
+                    "If no label came out, create it again; the unused one is "
+                    "refunded automatically.",
+                    result.message,
+                )
                 self.assertEqual(self.journal.statuses()[-1], "check_printer")
 
     def test_print_prepared_label_succeeds_without_warning_on_ok_outcome(self):

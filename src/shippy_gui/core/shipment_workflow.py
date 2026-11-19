@@ -306,11 +306,14 @@ class ShipmentWorkflow:  # pylint: disable=too-few-public-methods
             )
 
         # Outside the refund context: the label is queued and may print soon.
+        logger.info(
+            "Label %s did not print (%s); saved to %s", tracking, print_error, path
+        )
         label_journal.update_status(shipment, label_journal.STATUS_QUEUED, file=path)
         warning = saved_label_message(print_error, path)
         return ShipmentWorkflowResult(
             status=ShipmentWorkflowStatus.SUCCESS,
-            message=f"{warning}\n\nTracking: {tracking}",
+            message=f"{warning} Tracking: {tracking}",
             shipment=shipment,
             image=image,
             saved_label_path=path,
@@ -357,37 +360,36 @@ def _shipment_ref(shipment: Any) -> str:
 
 
 def saved_label_message(print_error: Exception, path: Path) -> str:
-    """Tell the volunteer an unprinted label was queued and postage kept."""
+    """Tell the volunteer an unprinted label was saved to print later."""
     return (
-        f"The label did NOT print: {print_error}\n\n"
-        f"It was saved to:\n{path}\n\n"
-        "If the IBP label watcher is running, it will print automatically as "
-        "soon as a label printer is working.\n\n"
-        "Postage was NOT refunded.\n\n"
-        "Before you print that file by hand, or refund this shipment in "
-        f"EasyPost, DELETE it from {path.parent} first, so the label watcher "
-        "does not print it too. If it is already gone, the watcher has picked "
-        "it up: check the printer (and the printed and check-printer folders "
-        "next to it) before doing either."
+        f"The label didn't print ({print_error}). It was saved to {path} and "
+        "will print automatically when the printer is working."
     )
+
+
+# What to do about a label that may not have printed. Unused labels are
+# refunded automatically, so a second label is the cheap, safe answer.
+CHECK_PRINTER_ADVICE = (
+    "Check the printer. If no label came out, create it again; the unused one "
+    "is refunded automatically."
+)
 
 
 def print_raised_warning(printer_name: str, error: Exception) -> str:
     """Explain an unexpected print error after which the label may still print."""
     return (
         f"Printing to {printer_name} failed unexpectedly ({error}) after the "
-        "label may already have reached the printer. It may or may NOT have "
-        "printed - check the printer before reprinting; postage was NOT "
-        f"refunded. Printer logs: {ibp_printing.default_log_dir()}"
+        "label may already have reached the printer, so it may not have "
+        f"printed. {CHECK_PRINTER_ADVICE} "
+        f"Printer logs: {ibp_printing.default_log_dir()}"
     )
 
 
 def dialog_uncertain_warning() -> str:
     """Explain a print-dialog job that failed after printing had started."""
     return (
-        "Printing through the print dialog failed after it had started. The "
-        "label may or may NOT have printed - check the printer before "
-        "reprinting; postage was NOT refunded."
+        "Printing through the print dialog failed after it had started, so the "
+        f"label may not have printed. {CHECK_PRINTER_ADVICE}"
     )
 
 
@@ -405,7 +407,7 @@ def _print_outcome_warning(
     outcome = print_result.outcome.value
     detail = _OUTCOME_DETAILS.get(outcome, f"the print queue reported '{outcome}'")
     return (
-        f"Label was sent to {printer_name} but {detail}. It may NOT have "
-        "printed - check the printer before reprinting; postage was NOT "
-        f"refunded. Printer logs: {ibp_printing.default_log_dir()}"
+        f"Label was sent to {printer_name} but {detail}, so it may not have "
+        f"printed. {CHECK_PRINTER_ADVICE} "
+        f"Printer logs: {ibp_printing.default_log_dir()}"
     )

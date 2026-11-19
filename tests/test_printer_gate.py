@@ -103,6 +103,7 @@ class NoPrinterDialogTests(unittest.TestCase):
         self.assertIn("plug in the printer", text)
         self.assertIn("Downloads\\to-print\\", text)
         self.assertIn("label watcher", text)
+        self.assertNotIn("again", text)
 
 
 @patch(
@@ -157,7 +158,6 @@ class ShipmentFlowPrinterGateTests(unittest.TestCase):
             get_shipment_service=Mock,
             get_logo_path=lambda: None,
             worker_factory=worker_factory,
-            find_duplicates=lambda identity: [],
             confirm_printer=self.gate,
         )
 

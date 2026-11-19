@@ -29,7 +29,7 @@ class FakeRecord:  # pylint: disable=too-many-instance-attributes
 
 
 class FakeJournal:
-    """Records journal calls; duplicates and pending labels are preset."""
+    """Records journal calls; pending labels are preset."""
 
     PrintError = ibp_printing.PrintError
 
@@ -37,9 +37,7 @@ class FakeJournal:
         self.records: dict[str, FakeRecord] = {}
         self.purchases: list[dict] = []
         self.status_updates: list[tuple] = []
-        self.duplicates: list[FakeRecord] = []
         self.pending: list[FakeRecord] = []
-        self.duplicate_queries: list[tuple] = []
 
     @staticmethod
     def recipient_key(name, street, city, state, zip_code) -> str:
@@ -59,11 +57,6 @@ class FakeJournal:
     def update_status(self, tracking_code, status, *, file=None) -> None:
         """Remember a status change."""
         self.status_updates.append((tracking_code, status, file))
-
-    def find_duplicates(self, recipient_key, *, within_hours=12) -> list:
-        """Return the preset duplicates."""
-        self.duplicate_queries.append((recipient_key, within_hours))
-        return list(self.duplicates)
 
     def pending_labels(self) -> list:
         """Return the preset pending labels."""

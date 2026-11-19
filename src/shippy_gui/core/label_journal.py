@@ -1,19 +1,18 @@
-"""Shared label journal glue: duplicate checks and label status tracking.
+"""Shared label journal glue: label status tracking.
 
 The journal itself lives in ibp-printing and is shared by every IBP app on the
 machine, so a label bought in shippy (CLI) is seen here too. Its calls never
 raise for journal problems; the wrappers below additionally make sure a
-journal hiccup can never break shipping (a slow journal is bounded by a
-timeout, and anything unexpected is logged and ignored).
+journal hiccup can never break shipping (anything unexpected is logged and
+ignored).
 """
 
-import concurrent.futures
 from dataclasses import dataclass
 from datetime import datetime
 import logging
 from pathlib import Path
 import time
-from typing import Any, Callable, Optional, Sequence, TypeVar
+from typing import Any, Optional
 
 import ibp_printing
 
@@ -23,20 +22,11 @@ logger = logging.getLogger(__name__)
 
 APP_NAME = "shippy-gui"
 
-# How far back a label for the same recipient counts as a possible duplicate.
-DUPLICATE_WINDOW_HOURS = 12
-
-# Upper bound on a journal call made from the UI thread. The journal is a
-# small local file, so this only matters if the disk or a lock is stuck.
-JOURNAL_TIMEOUT_S = 2.0
-
 STATUS_PURCHASED = "purchased"
 STATUS_PRINTED = "printed"
 STATUS_QUEUED = "queued"
 STATUS_CHECK_PRINTER = "check_printer"
 STATUS_REFUNDED = "refunded"
-
-T = TypeVar("T")
 
 
 @dataclass(frozen=True)
@@ -64,40 +54,6 @@ def identity_for(address: AddressBase) -> LabelIdentity:
 def tracking_ref(shipment: Any) -> str:
     """The journal's key for a shipment: tracking code, else shipment id."""
     return shipment.tracking_code or shipment.id
-
-
-_EXECUTOR = concurrent.futures.ThreadPoolExecutor(
-    max_workers=2, thread_name_prefix="label-journal"
-)
-
-
-def call_with_timeout(
-    func: Callable[[], T], default: T, timeout_s: float = JOURNAL_TIMEOUT_S
-) -> T:
-    """Run a journal call, giving up (with ``default``) after ``timeout_s``."""
-    future = _EXECUTOR.submit(func)
-    try:
-        return future.result(timeout=timeout_s)
-    except concurrent.futures.TimeoutError:
-        logger.warning("Label journal did not answer within %.1f s", timeout_s)
-    except Exception:  # pylint: disable=broad-exception-caught
-        logger.exception("Label journal call failed")
-    return default
-
-
-def find_duplicates(
-    identity: LabelIdentity, timeout_s: float = JOURNAL_TIMEOUT_S
-) -> list[Any]:
-    """Recent labels for the same recipient; empty if the journal is unavailable."""
-    return call_with_timeout(
-        lambda: list(
-            ibp_printing.find_duplicates(
-                identity.recipient_key, within_hours=DUPLICATE_WINDOW_HOURS
-            )
-        ),
-        [],
-        timeout_s,
-    )
 
 
 def pending_labels() -> list[Any]:
@@ -176,36 +132,3 @@ def format_time(value: Any) -> str:
     if moment.date() == datetime.now(moment.tzinfo).date():
         return moment.strftime("%H:%M")
     return moment.strftime("%b %d %H:%M")
-
-
-def describe_state(record: Any) -> str:
-    """What happened to an earlier label, phrased after "is already"."""
-    status = getattr(record, "status", "")
-    if status == STATUS_QUEUED:
-        return "queued — it will print automatically when the printer works"
-    if status == STATUS_CHECK_PRINTER:
-        return "waiting at the printer: check the printer before reprinting"
-    if status == STATUS_PRINTED:
-        return f"printed at {format_time(record.updated or record.created)}"
-    if status == STATUS_REFUNDED:
-        return f"refunded at {format_time(record.updated or record.created)}"
-    return (
-        f"bought at {format_time(record.created)} (its print outcome is unknown: "
-        "check the printer before reprinting)"
-    )
-
-
-def duplicate_question(records: Sequence[Any]) -> str:
-    """Ask whether to create a label although one already exists."""
-    newest = records[0]  # ibp-printing lists the newest first
-    text = (
-        f"A label for {newest.recipient_label} is already "
-        f"{describe_state(newest)} (tracking {newest.tracking_code})."
-    )
-    others = len(records) - 1
-    if others:
-        text += (
-            f" {others} other label(s) were made for this address in the last "
-            f"{DUPLICATE_WINDOW_HOURS} hours."
-        )
-    return f"{text} Create another label anyway?"

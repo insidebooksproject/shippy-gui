@@ -200,10 +200,6 @@ To create the shortcut:
 3. **Enter package weight** in pounds (1-70 range)
 4. **Select printer** from the dropdown
 5. **Click "Create Label"**:
-   - If a label for the same recipient was already bought in the last 12 hours,
-     or one is still queued or waiting at the printer (from shippy-gui or the
-     shippy CLI), the app stops and asks first (see
-     [Label already created](#label-already-created)); the default answer is **No**
    - Application purchases postage via EasyPost (Library Mail rate)
    - Downloads label from EasyPost and overlays IBP logo from `assets/logo.jpg` when available
    - Prints to selected printer
@@ -226,7 +222,7 @@ Shift + Click on "Create Label" uses the Qt system print dialog instead.
 Canceling that dialog refunds the postage. If printing cannot even start, the
 label is saved to `Downloads\to-print\` like any other label no printer took;
 if it fails after printing started, you get the "Check The Printer" warning and
-nothing is refunded.
+nothing is refunded right away.
 
 ### Printer logs
 
@@ -252,56 +248,47 @@ above also appear in the shippy-gui log file.
 - Double-check the address manually before shipping
 
 ### Label did not print
-If the label cannot be sent to any printer, the postage is **kept** (not
-refunded) and the label, with the IBP logo, is saved to the print queue folder
-`Downloads\to-print\`. A large "Label queued — do not create it again" dialog
-names the recipient and tracking number, says the label will print
-automatically when the printer works, and shows the exact file. **Do not create
-that label again.**
+If the label cannot be sent to any printer, the postage is kept and the label,
+with the IBP logo, is saved to the print queue folder `Downloads\to-print\`.
+A "Label Will Print Later" box says the label didn't print, names the
+recipient and tracking number, and says it was saved and will print
+automatically when the printer is working.
 
 - If the IBP label watcher (from ibp-printing) is running, the label prints
   automatically as soon as a label printer is working - plug in or fix the
   printer and wait.
-- **Before** you print that file yourself, or refund the shipment in EasyPost
-  (the dialog shows its tracking number) because the package will not ship,
-  delete the file from `to-print\` first, so the watcher does not print it too.
-  If the file is already gone, the watcher has picked it up: check the printer
-  (and the `printed\` and `check-printer\` folders) first.
+- To print the saved file by hand instead, delete it from `to-print\` after
+  printing it so the watcher does not print it too.
 - Check that your printer is online and selected correctly.
 
-The app only refunds automatically when the label could not be downloaded or
+The app only refunds right away when the label could not be downloaded or
 prepared after buying postage, or when it could not even be saved to the queue.
+Any label that is never used (never scanned by USPS) is refunded automatically
+by the weekly refund job on the IBP server, so an occasional extra label costs
+nothing.
 
-### Label already created
+### Label journal
 Every label bought by shippy-gui or the shippy CLI is recorded in the shared
 ibp-printing label journal (`labels.jsonl` in `%LOCALAPPDATA%\ibp-printing` on
 Windows, `~/.local/state/ibp-printing` on Linux), together with what happened
 to it: printed, queued in `to-print\`, waiting at the printer
-(`check_printer`), or refunded. Before buying postage, the app looks up the
-recipient's address there. If a label for them is still queued or waiting at
-the printer, or was bought or printed in the last 12 hours, it asks:
-
-> A label for *recipient* is already queued — it will print automatically when
-> the printer works (tracking …). Create another label anyway?
-
-(or "waiting at the printer: check the printer before reprinting", or
-"printed at HH:MM"). **No** is the default and buys nothing; answer **Yes**
-only if a second package really is going to the same person. Either answer is
-logged.
+(`check_printer`), or refunded. The label watcher and the "Waiting to print"
+indicator read it. The app does not ask before buying another label for the
+same address: several boxes to one person is normal.
 
 ### "Waiting to print: N"
 The status bar shows **Waiting to print: N** while labels are queued in
 `to-print\` or waiting at the printer (it is hidden when there are none, and
 refreshes every 10 seconds and after each shipment). Click it to see who each
-label is for, its tracking number, its status and when it was queued. These
-labels are already paid for: do not create them again.
+label is for, its tracking number, its status and when it was queued.
 
 ### "Check The Printer" warning
 The label reached the print queue, but the queue then reported a problem (or
 it could not be confirmed that the job got there, or printing failed with an
-unexpected error after the label may have been sent). The postage is **not**
-refunded and the label is **not** queued again, because it may still print.
-Check the printer before reprinting so you do not end up with two labels.
+unexpected error after the label may have been sent). The label is **not**
+queued again, because it may still print. The warning says: "Check the
+printer. If no label came out, create it again; the unused one is refunded
+automatically."
 
 ### Printer missing from the list
 - Click **Refresh** after plugging in or turning on the printer

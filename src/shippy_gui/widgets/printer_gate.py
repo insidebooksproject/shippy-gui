@@ -60,8 +60,7 @@ class NoPrinterDialog(QDialog):  # pylint: disable=too-few-public-methods
                 "and the label is created as soon as the printer is found.\n\n"
                 'If you click "Continue anyway", postage is bought now and the '
                 "label is saved to Downloads\\to-print\\. The label watcher prints "
-                "it automatically once a printer is connected. Do NOT create the "
-                "label again."
+                "it automatically once a printer is connected."
             )
         )
 

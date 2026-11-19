@@ -1,6 +1,5 @@
-"""Widgets that keep volunteers from creating a label twice.
+"""Widgets about labels that are bought but not printed yet.
 
-- the duplicate-label question asked before postage is bought,
 - the "Label queued" dialog shown when a label was saved to print later,
 - the "Waiting to print: N" status-bar indicator and its details dialog.
 """
@@ -28,8 +27,7 @@ from shippy_gui.core import label_journal
 
 logger = logging.getLogger(__name__)
 
-DUPLICATE_TITLE = "Label Already Created"
-QUEUED_TITLE = "Label queued — do not create it again"
+QUEUED_TITLE = "Label Will Print Later"
 PENDING_TITLE = "Labels Waiting To Print"
 
 # How often the status-bar indicator re-reads the journal.
@@ -42,59 +40,30 @@ STATUS_NAMES = {
 }
 
 
-def build_duplicate_box(
-    parent: Optional[QWidget], records: Sequence[Any]
-) -> QMessageBox:
-    """The "already created" question; No is the default answer."""
-    box = QMessageBox(parent)
-    box.setIcon(QMessageBox.Icon.Warning)
-    box.setWindowTitle(DUPLICATE_TITLE)
-    box.setText(label_journal.duplicate_question(records))
-    box.setStandardButtons(
-        QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
-    )
-    box.setDefaultButton(QMessageBox.StandardButton.No)
-    box.setEscapeButton(QMessageBox.StandardButton.No)
-    return box
-
-
-def confirm_duplicate_label(parent: Optional[QWidget], records: Sequence[Any]) -> bool:
-    """Ask whether to create another label; True only on an explicit Yes."""
-    box = build_duplicate_box(parent, records)
-    return box.exec() == QMessageBox.StandardButton.Yes
-
-
 def build_label_queued_box(
-    parent: Optional[QWidget], recipient_label: str, tracking: str, details: str
+    parent: Optional[QWidget], recipient_label: str, tracking: str
 ) -> QMessageBox:
-    """The big, bold "Label queued" dialog for a label saved to print later."""
+    """The "Label queued" information box for a label saved to print later."""
     box = QMessageBox(parent)
-    box.setIcon(QMessageBox.Icon.Warning)
+    box.setIcon(QMessageBox.Icon.Information)
     box.setWindowTitle(QUEUED_TITLE)
     box.setTextFormat(Qt.TextFormat.RichText)
     box.setText(
-        '<p style="font-size:18pt; font-weight:bold;">Label queued — do '
-        "not create it again</p>"
-        '<p style="font-size:14pt; font-weight:bold;">'
-        f"Recipient: {html.escape(recipient_label)}<br>"
+        "<p><b>The label didn't print</b></p>"
+        f"<p>Recipient: {html.escape(recipient_label)}<br>"
         f"Tracking: {html.escape(tracking)}</p>"
-        '<p style="font-size:14pt; font-weight:bold;">It will print '
-        "automatically when the printer works.</p>"
-        '<p style="font-size:16pt; font-weight:bold; color:#CC0000;">Do NOT '
-        "create this label again.</p>"
+        "<p>It was saved and will print automatically when the printer is "
+        "working.</p>"
     )
-    # The existing instructions (delete from to-print/ before printing by hand
-    # or refunding) stay visible below the headline.
-    box.setInformativeText(html.escape(details).replace("\n", "<br>"))
     box.setStandardButtons(QMessageBox.StandardButton.Ok)
     return box
 
 
 def show_label_queued(
-    parent: Optional[QWidget], recipient_label: str, tracking: str, details: str
+    parent: Optional[QWidget], recipient_label: str, tracking: str
 ) -> None:
-    """Show the "Label queued" dialog and wait for the volunteer to close it."""
-    build_label_queued_box(parent, recipient_label, tracking, details).exec()
+    """Show the "Label queued" box and wait for the volunteer to close it."""
+    build_label_queued_box(parent, recipient_label, tracking).exec()
 
 
 class PendingLabelsDialog(QDialog):  # pylint: disable=too-few-public-methods
@@ -109,8 +78,8 @@ class PendingLabelsDialog(QDialog):  # pylint: disable=too-few-public-methods
         layout = QVBoxLayout(self)
         layout.addWidget(
             QLabel(
-                "These labels are already bought. Do NOT create them again: "
-                "queued labels print automatically when the printer works."
+                f"{len(records)} label(s) waiting to print. Queued labels print "
+                "automatically when the printer works."
             )
         )
         self.table = QTableWidget(len(records), len(self.COLUMNS), self)
@@ -159,7 +128,7 @@ class PendingLabelsIndicator(QPushButton):
         self.setFlat(True)
         self.setCursor(Qt.CursorShape.PointingHandCursor)
         self.setToolTip("Labels already bought that have not printed yet")
-        self.setStyleSheet("color: #CC0000; font-weight: bold;")
+        self.setStyleSheet("color: #8A5A00;")  # amber: a note, not an alarm
         self.hide()
         self._fetched.connect(self._apply)
         self.clicked.connect(self.show_details)
