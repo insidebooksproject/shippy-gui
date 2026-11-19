@@ -391,14 +391,17 @@ class ShippingCoordinatorTests(unittest.TestCase):
 
         # Postage was kept: the form is cleared so it is not bought twice.
         address_form.clear.assert_called_once_with()
-        self.assertIn("Label QUEUED for Jane Doe, Huntsville", status_label.text())
-        self.assertIn("TRACK123", status_label.text())
-        self.assertIn("Do NOT create it again", status_label.text())
+        self.assertEqual(
+            status_label.text(),
+            "Label saved for Jane Doe, Huntsville (tracking TRACK123); it will "
+            "print automatically when the printer is working.",
+        )
+        self.assertNotIn("again", status_label.text())
         self.assertIn(STATUS_COLORS["warning"], status_label.styleSheet())
         mock_show_queued.assert_called_once()
         self.assertEqual(
             mock_show_queued.call_args.args[1:],
-            ("Jane Doe, Huntsville", "TRACK123", "The label did NOT print: saved"),
+            ("Jane Doe, Huntsville", "TRACK123"),
         )
 
     def _flow_coordinator(self):
@@ -530,10 +533,11 @@ class ShippingCoordinatorTests(unittest.TestCase):
         self.assertEqual(meta["recipient_label"], "Jane Doe, Huntsville")
         self.assertEqual(meta["tracking_code"], "TRACK123")
         shipment_service.refund_shipment.assert_not_called()
-        self.assertIn("Label QUEUED", status_label.text())
+        self.assertIn("Label saved for", status_label.text())
         mock_show_queued.assert_called_once()
-        self.assertEqual(mock_show_queued.call_args.args[1], "Jane Doe, Huntsville")
-        self.assertIn("DELETE it from", mock_show_queued.call_args.args[3])
+        self.assertEqual(
+            mock_show_queued.call_args.args[1:], ("Jane Doe, Huntsville", "TRACK123")
+        )
         self.assertEqual(
             self.journal.status_updates, [("TRACK123", "queued", str(saved))]
         )
@@ -714,7 +718,7 @@ class ShippingCoordinatorTests(unittest.TestCase):
 
         coordinator._on_label_saved(result)  # pylint: disable=protected-access
 
-        self.assertIn("Label QUEUED", status_label.text())
+        self.assertIn("Label saved for", status_label.text())
         self.assertTrue(status_label.text().endswith(self._RATES.text))
 
     def test_validation_error_clears_box_answer(self):

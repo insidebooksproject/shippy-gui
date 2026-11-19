@@ -6,7 +6,7 @@ import unittest
 from datetime import datetime, timedelta
 from unittest.mock import patch
 
-from PySide6.QtWidgets import QApplication
+from PySide6.QtWidgets import QApplication, QMessageBox
 
 from shippy_gui.core import label_journal
 from shippy_gui.core.models import RecipientAddress
@@ -74,31 +74,28 @@ class LabelQueuedDialogTests(unittest.TestCase):
     def setUpClass(cls):
         cls.app = QApplication.instance() or QApplication([])
 
-    def test_text_is_big_bold_and_keeps_instructions(self):
-        details = (
-            "The label did NOT print: no printer\n\nBefore you print that file "
-            "by hand, or refund this shipment in EasyPost, DELETE it from "
-            "C:\\Downloads\\to-print first"
-        )
+    def test_text_is_calm_and_says_it_prints_later(self):
         box = build_label_queued_box(
-            None, "Jane Doe, 123 Prison Rd, Huntsville, TX", "9400NEW", details
+            None, "Jane Doe, 123 Prison Rd, Huntsville, TX", "9400NEW"
         )
 
-        self.assertEqual(
-            box.windowTitle(), "Label queued \u2014 do not create it again"
-        )
+        self.assertEqual(box.windowTitle(), "Label Will Print Later")
+        self.assertIs(box.icon(), QMessageBox.Icon.Information)
         text = box.text()
-        self.assertIn("font-weight:bold", text)
-        self.assertIn("font-size:18pt", text)
+        self.assertIn("The label didn't print", text)
         self.assertIn("Recipient: Jane Doe, 123 Prison Rd, Huntsville, TX", text)
         self.assertIn("Tracking: 9400NEW", text)
-        self.assertIn("It will print automatically when the printer works.", text)
-        self.assertIn("Do NOT create this label again.", text)
-        self.assertIn("DELETE it from", box.informativeText())
-        self.assertIn("C:\\Downloads\\to-print", box.informativeText())
+        self.assertIn(
+            "It was saved and will print automatically when the printer is " "working.",
+            text,
+        )
+        self.assertNotIn("font-size", text)
+        self.assertNotIn("color", text)
+        self.assertNotIn("again", text)
+        self.assertEqual(box.informativeText(), "")
 
     def test_recipient_is_html_escaped(self):
-        box = build_label_queued_box(None, "A <b> & Co", "T1", "x")
+        box = build_label_queued_box(None, "A <b> & Co", "T1")
         self.assertIn("A &lt;b&gt; &amp; Co", box.text())
 
 

@@ -27,7 +27,7 @@ from shippy_gui.core import label_journal
 
 logger = logging.getLogger(__name__)
 
-QUEUED_TITLE = "Label queued — do not create it again"
+QUEUED_TITLE = "Label Will Print Later"
 PENDING_TITLE = "Labels Waiting To Print"
 
 # How often the status-bar indicator re-reads the journal.
@@ -41,36 +41,29 @@ STATUS_NAMES = {
 
 
 def build_label_queued_box(
-    parent: Optional[QWidget], recipient_label: str, tracking: str, details: str
+    parent: Optional[QWidget], recipient_label: str, tracking: str
 ) -> QMessageBox:
-    """The big, bold "Label queued" dialog for a label saved to print later."""
+    """The "Label queued" information box for a label saved to print later."""
     box = QMessageBox(parent)
-    box.setIcon(QMessageBox.Icon.Warning)
+    box.setIcon(QMessageBox.Icon.Information)
     box.setWindowTitle(QUEUED_TITLE)
     box.setTextFormat(Qt.TextFormat.RichText)
     box.setText(
-        '<p style="font-size:18pt; font-weight:bold;">Label queued — do '
-        "not create it again</p>"
-        '<p style="font-size:14pt; font-weight:bold;">'
-        f"Recipient: {html.escape(recipient_label)}<br>"
+        "<p><b>The label didn't print</b></p>"
+        f"<p>Recipient: {html.escape(recipient_label)}<br>"
         f"Tracking: {html.escape(tracking)}</p>"
-        '<p style="font-size:14pt; font-weight:bold;">It will print '
-        "automatically when the printer works.</p>"
-        '<p style="font-size:16pt; font-weight:bold; color:#CC0000;">Do NOT '
-        "create this label again.</p>"
+        "<p>It was saved and will print automatically when the printer is "
+        "working.</p>"
     )
-    # The existing instructions (delete from to-print/ before printing by hand
-    # or refunding) stay visible below the headline.
-    box.setInformativeText(html.escape(details).replace("\n", "<br>"))
     box.setStandardButtons(QMessageBox.StandardButton.Ok)
     return box
 
 
 def show_label_queued(
-    parent: Optional[QWidget], recipient_label: str, tracking: str, details: str
+    parent: Optional[QWidget], recipient_label: str, tracking: str
 ) -> None:
-    """Show the "Label queued" dialog and wait for the volunteer to close it."""
-    build_label_queued_box(parent, recipient_label, tracking, details).exec()
+    """Show the "Label queued" box and wait for the volunteer to close it."""
+    build_label_queued_box(parent, recipient_label, tracking).exec()
 
 
 class PendingLabelsDialog(QDialog):  # pylint: disable=too-few-public-methods

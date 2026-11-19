@@ -435,12 +435,12 @@ class ShipmentFlowCoordinator:  # pylint: disable=too-many-instance-attributes
         )
         self._status_presenter.set_status(
             self._with_rates(
-                f"Label QUEUED for {recipient} (tracking {tracking}) - it will "
-                "print automatically. Do NOT create it again."
+                f"Label saved for {recipient} (tracking {tracking}); it will "
+                "print automatically when the printer is working."
             ),
             "warning",
         )
-        show_label_queued(self._parent_widget, recipient, tracking, result.message)
+        show_label_queued(self._parent_widget, recipient, tracking)
 
     def _on_shipment_error(self, message: str) -> None:
         """Handle shipment error."""

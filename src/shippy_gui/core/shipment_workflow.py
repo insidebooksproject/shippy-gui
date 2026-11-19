@@ -306,11 +306,14 @@ class ShipmentWorkflow:  # pylint: disable=too-few-public-methods
             )
 
         # Outside the refund context: the label is queued and may print soon.
+        logger.info(
+            "Label %s did not print (%s); saved to %s", tracking, print_error, path
+        )
         label_journal.update_status(shipment, label_journal.STATUS_QUEUED, file=path)
         warning = saved_label_message(print_error, path)
         return ShipmentWorkflowResult(
             status=ShipmentWorkflowStatus.SUCCESS,
-            message=f"{warning}\n\nTracking: {tracking}",
+            message=f"{warning} Tracking: {tracking}",
             shipment=shipment,
             image=image,
             saved_label_path=path,
@@ -357,18 +360,10 @@ def _shipment_ref(shipment: Any) -> str:
 
 
 def saved_label_message(print_error: Exception, path: Path) -> str:
-    """Tell the volunteer an unprinted label was queued and postage kept."""
+    """Tell the volunteer an unprinted label was saved to print later."""
     return (
-        f"The label did NOT print: {print_error}\n\n"
-        f"It was saved to:\n{path}\n\n"
-        "If the IBP label watcher is running, it will print automatically as "
-        "soon as a label printer is working.\n\n"
-        "Postage was NOT refunded.\n\n"
-        "Before you print that file by hand, or refund this shipment in "
-        f"EasyPost, DELETE it from {path.parent} first, so the label watcher "
-        "does not print it too. If it is already gone, the watcher has picked "
-        "it up: check the printer (and the printed and check-printer folders "
-        "next to it) before doing either."
+        f"The label didn't print ({print_error}). It was saved to {path} and "
+        "will print automatically when the printer is working."
     )
 
 
