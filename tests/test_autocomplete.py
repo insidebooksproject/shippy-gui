@@ -6,6 +6,7 @@ from unittest.mock import Mock
 
 from PySide6.QtWidgets import QApplication, QLineEdit
 
+from shippy_gui.widgets import autocomplete as autocomplete_module
 from shippy_gui.widgets.autocomplete import GoogleMapsCompleter
 
 
@@ -28,7 +29,23 @@ class AutocompleteWorkerLifetimeTests(unittest.TestCase):
         completer = GoogleMapsCompleter(gmaps, debounce_delay=0, parent=line_edit)
         # Keep the parent alive for the duration of the test.
         completer._test_line_edit = line_edit
+        self.addCleanup(self._drain, completer)
         return completer
+
+    def _drain(self, completer):
+        """Deliver queued lookup results while the completer still exists.
+
+        Otherwise a finished worker's results_ready stays queued and reaches
+        the completer after it was garbage-collected, in whichever later test
+        next processes Qt events, crashing the test process.
+        """
+        completer.wait_for_workers()
+        for worker in list(autocomplete_module._PARKED_WORKERS):
+            worker.wait()
+        # Mark every result stale: popping up a completer whose line edit was
+        # never shown crashes too.
+        completer.current_request_id = -1
+        QApplication.processEvents()
 
     def test_overlapping_lookups_keep_the_earlier_worker_referenced(self):
         """Starting a second lookup must not drop a running first one."""
