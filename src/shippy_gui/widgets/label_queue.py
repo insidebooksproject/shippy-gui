@@ -128,7 +128,7 @@ class PendingLabelsIndicator(QPushButton):
         self.setFlat(True)
         self.setCursor(Qt.CursorShape.PointingHandCursor)
         self.setToolTip("Labels already bought that have not printed yet")
-        self.setStyleSheet("color: #CC0000; font-weight: bold;")
+        self.setStyleSheet("color: #8A5A00;")  # amber: a note, not an alarm
         self.hide()
         self._fetched.connect(self._apply)
         self.clicked.connect(self.show_details)
