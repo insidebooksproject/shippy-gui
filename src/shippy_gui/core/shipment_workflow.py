@@ -367,22 +367,29 @@ def saved_label_message(print_error: Exception, path: Path) -> str:
     )
 
 
+# What to do about a label that may not have printed. Unused labels are
+# refunded automatically, so a second label is the cheap, safe answer.
+CHECK_PRINTER_ADVICE = (
+    "Check the printer. If no label came out, create it again; the unused one "
+    "is refunded automatically."
+)
+
+
 def print_raised_warning(printer_name: str, error: Exception) -> str:
     """Explain an unexpected print error after which the label may still print."""
     return (
         f"Printing to {printer_name} failed unexpectedly ({error}) after the "
-        "label may already have reached the printer. It may or may NOT have "
-        "printed - check the printer before reprinting; postage was NOT "
-        f"refunded. Printer logs: {ibp_printing.default_log_dir()}"
+        "label may already have reached the printer, so it may not have "
+        f"printed. {CHECK_PRINTER_ADVICE} "
+        f"Printer logs: {ibp_printing.default_log_dir()}"
     )
 
 
 def dialog_uncertain_warning() -> str:
     """Explain a print-dialog job that failed after printing had started."""
     return (
-        "Printing through the print dialog failed after it had started. The "
-        "label may or may NOT have printed - check the printer before "
-        "reprinting; postage was NOT refunded."
+        "Printing through the print dialog failed after it had started, so the "
+        f"label may not have printed. {CHECK_PRINTER_ADVICE}"
     )
 
 
@@ -400,7 +407,7 @@ def _print_outcome_warning(
     outcome = print_result.outcome.value
     detail = _OUTCOME_DETAILS.get(outcome, f"the print queue reported '{outcome}'")
     return (
-        f"Label was sent to {printer_name} but {detail}. It may NOT have "
-        "printed - check the printer before reprinting; postage was NOT "
-        f"refunded. Printer logs: {ibp_printing.default_log_dir()}"
+        f"Label was sent to {printer_name} but {detail}, so it may not have "
+        f"printed. {CHECK_PRINTER_ADVICE} "
+        f"Printer logs: {ibp_printing.default_log_dir()}"
     )

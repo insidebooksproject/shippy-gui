@@ -14,6 +14,7 @@ from journal_fakes import install_fake_journal
 from shippy_gui.core import label_journal
 from shippy_gui.core.models import RecipientAddress, ReturnAddressConfig
 from shippy_gui.core.shipment_workflow import (
+    CHECK_PRINTER_ADVICE,
     ShipmentWorkflowInput,
     ShipmentWorkflow,
     ShipmentWorkflowStatus,
@@ -263,8 +264,9 @@ class ShipmentWorkflowTests(unittest.TestCase):
                 self.assertIsNone(result.saved_label_path)
                 self.assertIsNotNone(result.print_warning)
                 self.assertIn(str(error), result.print_warning)
-                self.assertIn("may or may NOT have printed", result.message)
-                self.assertIn("NOT refunded", result.message)
+                self.assertIn("may not have printed", result.message)
+                self.assertIn(CHECK_PRINTER_ADVICE, result.message)
+                self.assertNotIn("refunded.", result.message)
                 self.assertIn("TRACK123", result.message)
                 self.assertEqual(self.journal.statuses()[-1], "check_printer")
 
@@ -466,7 +468,8 @@ class ShipmentWorkflowTests(unittest.TestCase):
         self.assertFalse(result.refund_requested)
         self.service.refund_shipment.assert_not_called()
         self.assertIsNotNone(result.print_warning)
-        self.assertIn("may NOT have printed", result.message)
+        self.assertIn("may not have printed", result.message)
+        self.assertIn(CHECK_PRINTER_ADVICE, result.message)
         self.assertIn("'error'", result.message)
         self.assertIn("Alpha 20d1:7008", result.message)
         self.assertIn("TRACK123", result.message)
@@ -495,8 +498,12 @@ class ShipmentWorkflowTests(unittest.TestCase):
                 self.service.refund_shipment.assert_not_called()
                 self.assertIsNone(result.saved_label_path)
                 self.assertIsNotNone(result.print_warning)
-                self.assertIn("may NOT have printed", result.message)
-                self.assertIn("check the printer before reprinting", result.message)
+                self.assertIn("may not have printed", result.message)
+                self.assertIn(
+                    "If no label came out, create it again; the unused one is "
+                    "refunded automatically.",
+                    result.message,
+                )
                 self.assertEqual(self.journal.statuses()[-1], "check_printer")
 
     def test_print_prepared_label_succeeds_without_warning_on_ok_outcome(self):

@@ -580,7 +580,12 @@ class ShippingCoordinatorTests(unittest.TestCase):
         mock_save.assert_not_called()
         mock_box.warning.assert_called_once()
         self.assertEqual(mock_box.warning.call_args.args[1], "Check The Printer")
-        self.assertIn("may or may NOT have printed", status_label.text())
+        self.assertIn("may not have printed", status_label.text())
+        self.assertIn(
+            "Check the printer. If no label came out, create it again; the "
+            "unused one is refunded automatically.",
+            mock_box.warning.call_args.args[2],
+        )
         self.assertIn("TRACK123", status_label.text())
         self.assertEqual(self.journal.statuses(), ["check_printer"])
 
