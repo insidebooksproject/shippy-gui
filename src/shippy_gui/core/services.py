@@ -7,6 +7,7 @@ import easypost  # type: ignore[import-not-found] # pylint: disable=import-error
 
 from shippy_gui.core.constants import (
     SHIPMENT_CARRIER,
+    SHIPMENT_REFERENCE,
     SHIPMENT_SERVICE,
     PARCEL_PREDEFINED_PACKAGE,
     SMALL_BOX_HEIGHT_IN,
@@ -101,6 +102,7 @@ class ShipmentService:
             to_address={"id": to_addr_id},
             parcel=parcel,
             options={"special_rates_eligibility": SHIPMENT_SERVICE},
+            reference=SHIPMENT_REFERENCE,
         )
 
         rate = shipment.lowest_rate([SHIPMENT_CARRIER])

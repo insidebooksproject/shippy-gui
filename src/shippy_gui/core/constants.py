@@ -74,6 +74,12 @@ SHIPMENT_CARRIER = "USPS"
 SHIPMENT_SERVICE = "USPS.LIBRARYMAIL"
 PARCEL_PREDEFINED_PACKAGE = "Parcel"
 
+# Each shipment's EasyPost ``reference`` says what the label was bought for, so
+# the IBP server can match labels to requests later. shippy-gui only ships to
+# typed addresses, so every label it buys is tagged as manual (shippy's CLI
+# also uses ``ibp1:req:<code>`` and ``ibp1:unit:<jurisdiction>:<name>``).
+SHIPMENT_REFERENCE = "ibp1:manual"
+
 # Default declared parcel dimensions in inches. USPS requires all three
 # dimensions for the "Parcel" container type. Library Mail is priced by
 # weight alone, so these just need to be large enough for any book package
