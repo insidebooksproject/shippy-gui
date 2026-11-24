@@ -200,7 +200,7 @@ To create the shortcut:
 3. **Enter package weight** in pounds (1-70 range)
 4. **Select printer** from the dropdown
 5. **Click "Create Label"**:
-   - Application purchases postage via EasyPost (Library Mail rate)
+   - Application purchases postage via EasyPost (Library Mail rate), tagging the shipment's `reference` as `ibp1:manual` so the IBP server can tell typed-address labels from request and unit labels (the `shippy` CLI tags those `ibp1:req:<code>` and `ibp1:unit:<jurisdiction>:<unit name>`)
    - Downloads label from EasyPost and overlays IBP logo from `assets/logo.jpg` when available
    - Prints to selected printer
    - Shows tracking number on success

@@ -83,6 +83,19 @@ class ShipmentServiceTests(unittest.TestCase):
         )
         self.assertIs(result, self.client.shipment.buy.return_value)
 
+    def test_buy_shipment_tags_the_shipment_as_manual(self):
+        service = ShipmentService("ep_test", ParcelConfig())
+
+        service.buy_shipment("from_id", "to_id", 48.0, small_box=True)
+
+        self.client.shipment.create.assert_called_once_with(
+            from_address={"id": "from_id"},
+            to_address={"id": "to_id"},
+            parcel=self.client.parcel.create.return_value,
+            options={"special_rates_eligibility": "USPS.LIBRARYMAIL"},
+            reference="ibp1:manual",
+        )
+
 
 class SmallBoxProblemTests(unittest.TestCase):
     """The declared small box must avoid dimensional weight and long-side fees."""
