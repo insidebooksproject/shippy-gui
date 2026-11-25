@@ -16,7 +16,7 @@ Inside Books Project is an Austin-based community service volunteer organization
 - **Google Maps Integration**: Address autocomplete and geocoding for accurate address entry
 - **EasyPost API Integration**: Utilizes the EasyPost API for purchasing postage and generating Library Mail shipping labels
 - **Label Printing**: Generates and prints postage labels with IBP logo overlay when available
-- **Cross-Platform Printing**: Supports Windows (win32print) and Linux (CUPS) printing via the shared [ibp-printing](https://github.com/jonkensta/ibp-printing) library
+- **Cross-Platform Printing**: Supports Windows (win32print) and Linux (CUPS) printing via the shared [ibp-printing](https://github.com/insidebooksproject/printing) library
 - **Settings Dialog**: GUI for configuring the IBP server URL and API keys
 - **Error Handling**: Labels that cannot reach a printer are saved to a print queue folder for the IBP label watcher (postage kept); automatic refund if the label itself cannot be downloaded; comprehensive error messages
 - **Async Operations**: Non-blocking UI using QThread for network operations
@@ -31,12 +31,12 @@ To set up the `shippy-gui` application, ensure you have Python 3.12+ and [uv](ht
 1.  **Clone the repository:**
 
     ```bash
-    git clone https://github.com/jonkensta/shippy-gui.git
+    git clone https://github.com/insidebooksproject/shippy-gui.git
     cd shippy-gui
     ```
 
     Printing comes from the shared
-    [`ibp-printing`](https://github.com/jonkensta/ibp-printing) library, pinned
+    [`ibp-printing`](https://github.com/insidebooksproject/printing) library, pinned
     to a release tag in `pyproject.toml` and installed automatically.
 
 2.  **Create and activate a virtual environment:**
@@ -75,7 +75,7 @@ To set up the `shippy-gui` application, ensure you have Python 3.12+ and [uv](ht
 You can run the application directly from the git repository without cloning using `uvx`:
 
 ```bash
-uvx --from git+https://github.com/jonkensta/shippy-gui.git@main shippy-gui
+uvx --from git+https://github.com/insidebooksproject/shippy-gui.git@main shippy-gui
 ```
 
 ## Configuration
@@ -147,7 +147,7 @@ shippy-gui
 Run directly from the repository without local installation:
 
 ```bash
-uvx --from git+https://github.com/jonkensta/shippy-gui.git@main shippy-gui
+uvx --from git+https://github.com/insidebooksproject/shippy-gui.git@main shippy-gui
 ```
 
 ### Creating a Desktop Shortcut (Windows)
@@ -155,7 +155,7 @@ uvx --from git+https://github.com/jonkensta/shippy-gui.git@main shippy-gui
 To create a Windows desktop shortcut that launches shippy-gui, you can use PowerShell:
 
 ```powershell
-powershell.exe -NoExit -Command "& { & 'uvx' --from 'git+https://github.com/jonkensta/shippy-gui.git@main' 'shippy-gui' }"
+powershell.exe -NoExit -Command "& { & 'uvx' --from 'git+https://github.com/insidebooksproject/shippy-gui.git@main' 'shippy-gui' }"
 ```
 
 To create the shortcut:
@@ -180,7 +180,7 @@ REM Set working directory (where your config lives)
 cd /d "C:\InsideBooks\ShippyGUI"
 
 REM Run the app
-uvx --from git+https://github.com/jonkensta/shippy-gui.git@main shippy-gui
+uvx --from git+https://github.com/insidebooksproject/shippy-gui.git@main shippy-gui
 ```
 
 To create the shortcut:
@@ -302,7 +302,7 @@ automatically."
 
 ## Development
 
-This application shares core shipping logic with the [shippy CLI tool](https://github.com/jonkensta/shippy). The following modules are reused:
+This application shares core shipping logic with the [shippy CLI tool](https://github.com/insidebooksproject/shippy). The following modules are reused:
 - `core/services.py` - EasyPost wrapper
 - `core/addresses.py` - Google Maps geocoding
 - `core/models.py` - Pydantic configuration models

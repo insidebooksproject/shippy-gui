@@ -237,7 +237,7 @@ sdist = { url = "https://files.pythonhosted.org/packages/fe/26/bca4d737a9acea25e
 [[package]]
 name = "ibp-printing"
 version = "0.4.0"
-source = { git = "https://github.com/jonkensta/ibp-printing?tag=v0.4.0#842f82c410b90aeddd8d38be48d8999762618439" }
+source = { git = "https://github.com/insidebooksproject/printing?tag=v0.4.0#842f82c410b90aeddd8d38be48d8999762618439" }
 dependencies = [
     { name = "pillow" },
     { name = "pywin32", marker = "sys_platform == 'win32'" },
@@ -833,8 +833,8 @@ dev = [
 requires-dist = [
     { name = "easypost", specifier = ">=10.3.0" },
     { name = "googlemaps", specifier = ">=4.10.0" },
-    { name = "ibp-printing", git = "https://github.com/jonkensta/ibp-printing?tag=v0.4.0" },
-    { name = "ibp-printing", extras = ["linux"], marker = "extra == 'linux'", git = "https://github.com/jonkensta/ibp-printing?tag=v0.4.0" },
+    { name = "ibp-printing", git = "https://github.com/insidebooksproject/printing?tag=v0.4.0" },
+    { name = "ibp-printing", extras = ["linux"], marker = "extra == 'linux'", git = "https://github.com/insidebooksproject/printing?tag=v0.4.0" },
     { name = "pillow", specifier = ">=12.2.0" },
     { name = "pydantic", specifier = ">=2.12.5" },
     { name = "pyside6", specifier = ">=6.8.0" },
