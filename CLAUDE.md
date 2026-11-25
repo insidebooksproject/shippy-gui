@@ -114,11 +114,10 @@ when changing UI or startup code. If you cannot run a meaningful check, say so.
 - Do **not** include "Co-Authored-By" or any AI attribution in commit messages.
 - Merge feature branches straight into `main` with `git merge --no-ff`; no
   pull requests and no review (one maintainer).
-- `main` and `deploy` are kept identical. The shipping laptops' desktop
-  shortcuts run `@deploy` with uvx and the kiosk image installs `deploy` as a
-  uv tool, so release by fast-forwarding it to `main`
-  (`git push origin main:deploy`) after the change is tested; never commit to
-  `deploy` directly or let it diverge from `main`.
+- `main` and `deploy` are kept identical, and every station runs `deploy`:
+  release by fast-forwarding it (`git push origin main:deploy`) after the
+  change is tested; never commit to `deploy` directly or let it diverge from
+  `main`. Details and rollback: [README.md](README.md#releasing).
 
 ## Key Patterns
 
