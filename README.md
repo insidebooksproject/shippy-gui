@@ -1,10 +1,13 @@
 # shippy-gui
 
-`shippy-gui` is a PySide6 GUI application designed to streamline the process of printing shipping labels for books destined for incarcerated individuals in Texas. It integrates with the EasyPost API for postage purchasing and label generation, and uses Google Maps for address autocomplete.
-
-## Purpose
-
-The primary goal of this application is to provide an intuitive graphical interface for the Inside Books Project (IBP) to generate and print accurate shipping labels for manual address entry. It automates the postage purchasing and label creation process using EasyPost for carrier services and Google Maps for address lookup assistance.
+`shippy-gui` is the PySide6 app the Inside Books Project (IBP) shipping
+stations use to print shipping labels for books sent to people incarcerated in
+Texas when the address is typed in ("Ship Manual"). Packages for
+a scanned request or a unit go through the [shippy CLI](https://github.com/insidebooksproject/shippy).
+It looks addresses up with Google Maps autocomplete, takes the return address
+from the IBP server, buys the cheapest USPS postage through EasyPost, and
+prints the label, with the IBP logo, through the shared
+[ibp-printing](https://github.com/insidebooksproject/printing) library.
 
 ## About Inside Books Project
 
@@ -12,13 +15,8 @@ Inside Books Project is an Austin-based community service volunteer organization
 
 ## Features
 
-- **Manual Address Entry**: Single window interface for entering recipient addresses
-- **Google Maps Integration**: Address autocomplete and geocoding for accurate address entry
-- **EasyPost API Integration**: Utilizes the EasyPost API for purchasing postage and generating Library Mail shipping labels
-- **Label Printing**: Generates and prints postage labels with IBP logo overlay when available
-- **Cross-Platform Printing**: Supports Windows (win32print) and Linux (CUPS) printing via the shared [ibp-printing](https://github.com/insidebooksproject/printing) library
 - **Settings Dialog**: GUI for configuring the IBP server URL and API keys
-- **Error Handling**: Labels that cannot reach a printer are saved to a print queue folder for the IBP label watcher (postage kept); automatic refund if the label itself cannot be downloaded; comprehensive error messages
+- **Error Handling**: Labels that cannot reach a printer are saved to a print queue folder for the IBP label watcher (postage kept); automatic refund if the label itself cannot be downloaded
 - **Async Operations**: Non-blocking UI using QThread for network operations
 - **Configurable Font Size**: Adjust UI font size for accessibility
 
