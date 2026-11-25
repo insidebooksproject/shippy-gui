@@ -20,61 +20,61 @@ Inside Books Project is an Austin-based community service volunteer organization
 - **Async Operations**: Non-blocking UI using QThread for network operations
 - **Configurable Font Size**: Adjust UI font size for accessibility
 
-## Installation
+## Running shippy-gui
 
-To set up the `shippy-gui` application, ensure you have Python 3.12+ and [uv](https://github.com/astral-sh/uv) installed.
-
-### Option 1: Local Development Installation
-
-1.  **Clone the repository:**
-
-    ```bash
-    git clone https://github.com/insidebooksproject/shippy-gui.git
-    cd shippy-gui
-    ```
-
-    Printing comes from the shared
-    [`ibp-printing`](https://github.com/insidebooksproject/printing) library, pinned
-    to a release tag in `pyproject.toml` and installed automatically.
-
-2.  **Create and activate a virtual environment:**
-
-    ```bash
-    uv venv
-    source .venv/bin/activate
-    ```
-
-    On Windows, use `.venv\Scripts\activate`.
-
-3.  **Install dependencies:**
-
-    The project dependencies are defined in `pyproject.toml`. Sync them using `uv`:
-
-    ```bash
-    uv sync
-    ```
-
-    For platform-specific printing support, add the appropriate extra:
-
-    **Linux (CUPS):** installs `pycups` (needs the libcups development
-    headers; without it ibp-printing falls back to `lpstat`/`lp`)
-    ```bash
-    uv sync --extra linux
-    ```
-
-    **Windows (win32print):** `pywin32` and `WMI` are installed automatically on
-    Windows; the extra is kept for compatibility
-    ```bash
-    uv sync --extra windows
-    ```
-
-### Option 2: Direct Execution with uvx
-
-You can run the application directly from the git repository without cloning using `uvx`:
+The stations run the `deploy` branch straight from GitHub with
+[uv](https://github.com/astral-sh/uv)'s `uvx` (see [Releasing](#releasing)):
 
 ```bash
-uvx --from git+https://github.com/insidebooksproject/shippy-gui.git@main shippy-gui
+uvx --from git+https://github.com/insidebooksproject/shippy-gui.git@deploy shippy-gui
 ```
+
+The shipping laptops' SHIP MANUAL shortcut runs
+`uvx --from "shippy-gui[windows] @ git+https://github.com/insidebooksproject/shippy-gui.git@deploy" shippy-gui`;
+the `windows` extra is empty and kept only so that command keeps working.
+shippy-gui reads `config.ini` from the folder it is started in (see
+[Configuration](#configuration)), so start it from the folder that holds it.
+
+### Creating a Desktop Shortcut (Windows)
+
+To create a Windows desktop shortcut that launches shippy-gui, you can use PowerShell:
+
+```powershell
+powershell.exe -NoExit -Command "& { & 'uvx' --from 'git+https://github.com/insidebooksproject/shippy-gui.git@deploy' 'shippy-gui' }"
+```
+
+To create the shortcut:
+
+1. Right-click on your desktop
+2. Select **New → Shortcut**
+3. Paste the PowerShell command above as the location
+4. Name the shortcut "Shippy GUI" (or your preferred name)
+5. Click **Finish**
+6. In the shortcut's **Properties**, set **Start in** to the folder with `config.ini`
+
+#### Using a `.cmd` Launcher (Recommended)
+
+For more reliable startup and an explicit config path, create a small `.cmd` file and point a shortcut at it.
+
+Example `shippy-gui.cmd`:
+
+```bat
+@echo off
+setlocal
+
+REM Set working directory (where your config lives)
+cd /d "C:\InsideBooks\ShippyGUI"
+
+REM Run the app
+uvx --from git+https://github.com/insidebooksproject/shippy-gui.git@deploy shippy-gui
+```
+
+To create the shortcut:
+
+1. Save the `.cmd` file in a stable location
+2. Right-click on your desktop and select **New → Shortcut**
+3. Browse to the `.cmd` file
+4. Name the shortcut and click **Finish**
 
 ## Configuration
 
@@ -124,71 +124,7 @@ You can also configure these settings from within the application:
 
 The settings dialog validates your configuration and saves it to `config.ini`.
 
-## Usage
-
-### Running from Local Installation
-
-Once you've installed the dependencies in your virtual environment, you can run the application:
-
-```bash
-python -m shippy_gui
-```
-
-Or if you installed it as a package:
-
-```bash
-shippy-gui
-```
-
-### Running with uvx
-
-Run directly from the repository without local installation:
-
-```bash
-uvx --from git+https://github.com/insidebooksproject/shippy-gui.git@main shippy-gui
-```
-
-### Creating a Desktop Shortcut (Windows)
-
-To create a Windows desktop shortcut that launches shippy-gui, you can use PowerShell:
-
-```powershell
-powershell.exe -NoExit -Command "& { & 'uvx' --from 'git+https://github.com/insidebooksproject/shippy-gui.git@main' 'shippy-gui' }"
-```
-
-To create the shortcut:
-
-1. Right-click on your desktop
-2. Select **New → Shortcut**
-3. Paste the PowerShell command above as the location
-4. Name the shortcut "Shippy GUI" (or your preferred name)
-5. Click **Finish**
-
-#### Using a `.cmd` Launcher (Recommended)
-
-For more reliable startup and an explicit config path, create a small `.cmd` file and point a shortcut at it.
-
-Example `shippy-gui.cmd`:
-
-```bat
-@echo off
-setlocal
-
-REM Set working directory (where your config lives)
-cd /d "C:\InsideBooks\ShippyGUI"
-
-REM Run the app
-uvx --from git+https://github.com/insidebooksproject/shippy-gui.git@main shippy-gui
-```
-
-To create the shortcut:
-
-1. Save the `.cmd` file in a stable location
-2. Right-click on your desktop and select **New → Shortcut**
-3. Browse to the `.cmd` file
-4. Name the shortcut and click **Finish**
-
-### Application Workflow
+## Application Workflow
 
 1. **Configure settings** (File → Settings) on first run
 2. **Enter recipient address**:
@@ -300,18 +236,74 @@ automatically."
 
 ## Development
 
-This application shares core shipping logic with the [shippy CLI tool](https://github.com/insidebooksproject/shippy). The following modules are reused:
-- `core/services.py` - EasyPost wrapper
-- `core/addresses.py` - Google Maps geocoding
-- `core/models.py` - Pydantic configuration models
+Install Python 3.12+ and [uv](https://github.com/astral-sh/uv), then:
 
-For development setup, follow the Local Development Installation instructions above.
+1.  **Clone the repository:**
+
+    ```bash
+    git clone https://github.com/insidebooksproject/shippy-gui.git
+    cd shippy-gui
+    ```
+
+2.  **Create and activate a virtual environment:**
+
+    ```bash
+    uv venv
+    source .venv/bin/activate
+    ```
+
+    On Windows, use `.venv\Scripts\activate`.
+
+3.  **Install dependencies** (defined in `pyproject.toml`):
+
+    ```bash
+    uv sync
+    ```
+
+    For platform-specific printing support, add the appropriate extra:
+
+    **Linux (CUPS):** installs `pycups` (needs the libcups development
+    headers; without it ibp-printing falls back to `lpstat`/`lp`)
+    ```bash
+    uv sync --extra linux
+    ```
+
+    **Windows (win32print):** `pywin32` and `WMI` are installed automatically on
+    Windows; the extra is kept for compatibility
+    ```bash
+    uv sync --extra windows
+    ```
+
+4.  **Run it** from the folder with `config.ini`:
+
+    ```bash
+    python -m shippy_gui
+    ```
+
+    or `shippy-gui`.
 
 To enable Git hooks for linting and formatting checks:
 
 ```bash
 uv run pre-commit install
 ```
+
+Checks, tests and the code conventions are in [CLAUDE.md](CLAUDE.md).
+
+### Releasing
+
+`main` and `deploy` stay at the same tip. Merge feature branches straight
+into `main` (no pull requests), test, then release by fast-forwarding
+`deploy` to it:
+
+```bash
+git push origin main:deploy
+```
+
+The shipping laptops run `@deploy` with `uvx` at every launch, and the kiosk
+image installs shippy-gui from `deploy` as a uv tool, so both pick up the
+release at the next launch. Never commit to `deploy` directly. To roll back,
+push the previous commit to `deploy` with `--force-with-lease`.
 
 ## License
 
