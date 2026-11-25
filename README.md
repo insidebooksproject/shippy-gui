@@ -158,14 +158,17 @@ The settings dialog validates your configuration and saves it to `config.ini`.
 
 ## Platform Support
 
-Printer discovery and direct printing are provided by `ibp-printing`:
+Printer discovery and direct printing are provided by `ibp-printing`. Only
+USB label printers are listed:
 
-- **Windows**: Uses win32print. Only USB label printers are listed: the print
-  queue name must end with the printer's USB ID (e.g. `Zebra 20d1:7008`,
-  `Zebra_20d1:7008` or `Zebra-20d1:7008`) and that USB device must be plugged
-  in. Printers whose USB device or queue reports a problem are still listed,
-  just lower down.
-- **Linux**: Uses CUPS via `lp`; every CUPS queue is listed.
+- **Direct USB**: a supported printer (the PM2411BT the shipping laptops use)
+  is printed to directly over USB, with no print queue or naming rule, and is
+  listed first, e.g. `PM2411BT (USB direct, serial ...)`.
+- **Print queues** (win32print on Windows, CUPS on Linux): the queue name must
+  end with the printer's USB ID (e.g. `Zebra 20d1:7008`, `Zebra_20d1:7008` or
+  `Zebra-20d1:7008`; CUPS names cannot contain spaces) and that USB device
+  must be plugged in. Printers whose USB device or queue reports a problem are
+  still listed, just lower down.
 
 Shift + Click on "Create Label" uses the Qt system print dialog instead.
 Canceling that dialog refunds the postage. If printing cannot even start, the
