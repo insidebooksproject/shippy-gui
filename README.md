@@ -195,9 +195,11 @@ above also appear in the shippy-gui log file.
 - Ensure `config.ini` exists and is properly formatted
 - Use File → Settings to validate and save your configuration
 
-### "Failed to verify address" warning
-- This is non-blocking; you can proceed with shipment
+### "Failed to verify recipient address" warning
+- This is non-blocking; the label is still bought
 - Double-check the address manually before shipping
+- "Failed to verify return address" means the return address in the IBP
+  server's shipping settings (editable in the IBP web app) needs checking
 
 ### Label did not print
 If the label cannot be sent to any printer, the postage is kept and the label,
@@ -244,7 +246,9 @@ automatically."
 
 ### Printer missing from the list
 - Click **Refresh** after plugging in or turning on the printer
-- Run `uv run diagnose-printers` to see every print queue and why it is or is not listed
+- Run `diagnose-printers` to see every printer and print queue and why it is or is not listed:
+  `uvx --from git+https://github.com/insidebooksproject/shippy-gui.git@deploy diagnose-printers`
+  on a station, or `uv run diagnose-printers` in a checkout
 - Send the `printer-shippy-gui.log`/`printer-shippy-gui.jsonl` files (see [Printer logs](#printer-logs)) when reporting a problem
 
 ### Google Maps autocomplete not working
