@@ -82,12 +82,12 @@ The application requires a configuration file for the IBP server, the EasyPost A
 
 ### Initial Setup
 
-On first run, the application requires a `config.ini` file in the current working directory. If it is missing, the application will create one from the packaged `config.example.ini` and exit with a configuration error so you can open Settings and fill in the required values. If it is incomplete, the application will also exit with a configuration error. Settings are always saved to `config.ini`.
+shippy-gui reads `config.ini` from the current working directory. If it is missing, the app creates one from the packaged `config.example.ini`, shows a configuration error and opens Settings so you can fill in the required values; if it is incomplete or invalid, it shows the error and opens Settings too. If you cancel Settings, or the values are still invalid, the app exits. Settings are always saved to `config.ini`.
 
 ### Manual Configuration
 
 1.  Copy `config.example.ini` to `config.ini` in your working directory.
-    - Note: `config.example.ini` is included in the repo for development convenience and is also bundled inside the installed package for automatic bootstrap.
+    - Note: `config.example.ini` is in the repo root and also bundled inside the installed package for automatic bootstrap.
 2.  Populate it with the IBP server URL and your API keys:
 
     ```ini
@@ -112,6 +112,10 @@ On first run, the application requires a `config.ini` file in the current workin
     - `easypost.apikey`: Your EasyPost API key
     - `googlemaps.apikey`: Your Google Maps API key (for address autocomplete)
     - `ibp.url`: The IBP server's API base URL (source of the return address)
+    - `ibp.apikey` (optional, also in Settings): stored but not sent; the IBP server needs no key
+    - `[parcel]` (optional): `length`, `width` and `height` in inches of the
+      box declared unless the small-box checkbox is ticked (default 20 x 14 x 10).
+      The small box is always declared as 12 x 12 x 12.
 
 ### Settings Dialog
 
