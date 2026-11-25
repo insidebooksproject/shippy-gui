@@ -136,9 +136,20 @@ The settings dialog validates your configuration and saves it to `config.ini`.
    - Address fields auto-populate when you select a result
    - All fields are editable for manual adjustment
 3. **Enter package weight** in pounds (1-70 range)
-4. **Select printer** from the dropdown
+   - At 4 pounds and up, tick the box-size checkbox only if the box is 1,728
+     cubic inches or less (each side rounded up to a whole inch) with no side
+     over 22 inches; its tooltip has examples. Leave it unticked if unsure.
+     Changing the address clears it.
+4. **Select printer** from the dropdown (it updates by itself a few seconds
+   after a printer is plugged in; **Refresh** scans right away)
 5. **Click "Create Label"**:
-   - Application purchases postage via EasyPost (Library Mail rate), tagging the shipment's `reference` as `ibp1:manual` so the IBP server can tell typed-address labels from request and unit labels (the `shippy` CLI tags those `ibp1:req:<code>` and `ibp1:unit:<jurisdiction>:<unit name>`)
+   - If no label printer is found, a "No label printer detected" window waits
+     for one and closes by itself when it appears. **Continue anyway** buys
+     the label and saves it to `Downloads\to-print\` for the label watcher;
+     **Cancel** buys nothing.
+   - Application buys the cheapest USPS rate via EasyPost (Library Mail, or
+     Ground Advantage when the small box makes it cheaper) and shows the rates
+     it compared, tagging the shipment's `reference` as `ibp1:manual` so the IBP server can tell typed-address labels from request and unit labels (the `shippy` CLI tags those `ibp1:req:<code>` and `ibp1:unit:<jurisdiction>:<unit name>`)
    - Downloads label from EasyPost and overlays IBP logo from `assets/logo.jpg` when available
    - Prints to selected printer
    - Shows tracking number on success
