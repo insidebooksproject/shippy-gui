@@ -290,6 +290,20 @@ uv run pre-commit install
 
 Checks, tests and the code conventions are in [CLAUDE.md](CLAUDE.md).
 
+Printing comes from the shared
+[`ibp-printing`](https://github.com/insidebooksproject/printing) library, pinned
+to a release tag in `pyproject.toml` (`[tool.uv.sources]`) and installed
+automatically. To develop both together, temporarily point it at a checkout in
+`../printing` with `{ path = "../printing", editable = true }`. Tag and push a
+new ibp-printing release before pinning it here, or the stations fail to
+install shippy-gui.
+
+shippy-gui does not depend on the [shippy CLI](https://github.com/insidebooksproject/shippy):
+`core/services.py` (EasyPost), `core/addresses.py` (Google Maps) and
+`core/models.py` (config) are its own versions of the same logic, so a fix in
+one app does not reach the other. What the two share is ibp-printing and the
+IBP server.
+
 ### Releasing
 
 `main` and `deploy` stay at the same tip. Merge feature branches straight
