@@ -17,12 +17,15 @@ src/shippy_gui/
   main_window.py       # Top-level QMainWindow
   shipping_tab.py      # Main shipping form tab
   settings_dialog.py   # Settings/config dialog
+  shipping_coordinators.py # Create Label flow: printer gate, box answer, result dialogs
   core/
     config.py          # INI loading via configparser
     config_manager.py  # ConfigManager class (load/save/validate)
     models.py          # Pydantic models for config validation
     constants.py       # App-wide constants
-    services.py        # EasyPost API wrapper
+    services.py        # EasyPost API wrapper (cheapest USPS rate, small-box parcel)
+    rates.py           # Quoted-rates summary shown after buying
+    ibp_server.py      # Return address from GET /shipping-settings
     addresses.py       # Google Maps geocoding/autocomplete
     logging.py         # Logging setup
     font.py            # Font size application
@@ -34,6 +37,7 @@ src/shippy_gui/
     shipment_controls.py
     autocomplete.py    # Google Maps autocomplete widget
     label_queue.py     # "Label Will Print Later" box, "Waiting to print" indicator
+    printer_gate.py    # NoPrinterDialog shown before buying without a printer
   workers/
     shipment_worker.py # QThread worker for async shipment creation
   printing/
@@ -44,17 +48,26 @@ src/shippy_gui/
   config.example.ini   # Bundled template; also in repo root for dev
 ```
 
+The `diagnose-printers` console script is `ibp_printing.diagnostics:main`
+(the same tool as ibp-printing's `ibp-print-diag`).
+
 ## Environment Setup
 
 ```bash
 uv venv
 source .venv/bin/activate
 uv sync --extra linux   # or --extra windows on Windows
-# ibp-printing is pinned to a git tag; to develop both together, temporarily point [tool.uv.sources] at ../ibp-printing
 uv run pre-commit install
 ```
 
+`uv sync` also installs the `dev` group (black, mypy, pylint). `ibp-printing`
+is pinned to a git tag of https://github.com/insidebooksproject/printing in
+`[tool.uv.sources]`; to develop both together, temporarily point it at a
+checkout in `../printing` (`{ path = "../printing", editable = true }`).
+
 ## Running the App
+
+Run from the repository root so `config.ini` resolves:
 
 ```bash
 python -m shippy_gui
@@ -65,15 +78,17 @@ shippy-gui
 ## Configuration
 
 - `config.ini` in the working directory (gitignored, never commit)
-- `config.example.ini` is the template (committed to repo)
+- `config.example.ini` is the template (committed to repo, with a copy in `src/shippy_gui/` bundled for bootstrap); real settings belong only in `config.ini`
 - On first launch, the app auto-creates `config.ini` from the bundled example and opens the Settings dialog
+- If you change setup, config fields, startup, platform behaviour or the volunteer-visible workflow, update `README.md` (and, for config fields, both copies of `config.example.ini`) in the same unit of work
 
 ## Code Quality
 
-Pre-commit hooks run on every commit:
-- `pylint` — `uv run pylint src` (pylint/mypy are not project deps; use `uv run --with pylint --with mypy ...` if they are not installed)
+Pre-commit hooks run on every commit (CI runs the same on Linux and Windows):
+- `pylint` — `uv run pylint src`
 - `mypy` — `uv run mypy src`
 - `black --check` — `uv run black --check src`
+- `unittest` — the test command below
 
 Format code before committing: `uv run black src`
 
@@ -82,10 +97,13 @@ Run tests (requires offscreen Qt platform for headless/hook contexts):
 QT_QPA_PLATFORM=offscreen uv run python -m unittest discover -s tests
 ```
 
+Run the checks that match what you touched; add an app launch smoke check
+when changing UI or startup code. If you cannot run a meaningful check, say so.
+
 ## Git Workflow
 
 - All work is done on **feature branches** branched from `main`.
-- Commits must be **atomic and focused** — each commit should represent the smallest coherent unit of change.
+- Commits must be **atomic and focused** — each commit should represent the smallest coherent unit of change; do not mix unrelated changes.
 - Use **single-line commit messages** with an appropriate conventional tag:
   - `feat:` — new feature
   - `bugfix:` — bug fix
@@ -97,16 +115,18 @@ QT_QPA_PLATFORM=offscreen uv run python -m unittest discover -s tests
 - Merge feature branches straight into `main` with `git merge --no-ff`; no
   pull requests and no review (one maintainer).
 - `main` and `deploy` are kept identical. The shipping laptops' desktop
-  shortcuts run `@deploy`, so release by fast-forwarding it to `main`
+  shortcuts run `@deploy` with uvx and the kiosk image installs `deploy` as a
+  uv tool, so release by fast-forwarding it to `main`
   (`git push origin main:deploy`) after the change is tested; never commit to
   `deploy` directly or let it diverge from `main`.
 
 ## Key Patterns
 
+- Keep changes focused and within the existing module boundaries; preserve the PySide6 signal/slot patterns. Never hardcode secrets, API keys, printer names or machine-specific paths.
 - Configuration is validated with Pydantic models (`core/models.py`); always use `ConfigManager` or `load_config()` — never read `config.ini` directly.
 - Network operations (EasyPost, Google Maps) run in `QThread` workers to keep the UI non-blocking.
 - Printing (discovery, platform backends, USB VID:PID matching, job tracking, printer logs) lives in the shared `ibp-printing` library (`ibp_printing`). `printing/printer_manager.py` is only a thin adapter; fix printer behaviour in ibp-printing, not here, and do not add platform checks to shippy-gui.
-- `ibp_printing.configure_logging(app="shippy-gui")` is called at startup (`core/logging.py`), writing `printer-shippy-gui.log`/`printer-shippy-gui.jsonl` to `%LOCALAPPDATA%\ibp-printing\logs`; INFO+ printer records also reach the app log.
+- `ibp_printing.configure_logging(app="shippy-gui")` is called at startup (`core/logging.py`), writing `printer-shippy-gui.log`/`printer-shippy-gui.jsonl` to `%LOCALAPPDATA%\ibp-printing\logs` (`~/.local/state/ibp-printing/logs` on Linux); INFO+ printer records also reach the app log.
 - Tests fake printers with `ibp_printing.set_backend(FakeBackend())` (see `tests/test_printer_manager.py`); reset with `set_backend(None)`.
 - Refund rules after postage is bought — preserve them when touching `shipment_worker.py` / `core/shipment_workflow.py` (covered by `tests/test_shipment_workflow.py`):
   - **No label image yet** (label download, decoding, or logo fails): refund.
