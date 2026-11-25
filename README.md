@@ -2,9 +2,9 @@
 
 `shippy-gui` is the PySide6 app the Inside Books Project (IBP) shipping
 stations use to print shipping labels for books sent to people incarcerated in
-Texas when the address is typed in ("Ship Manual"). Packages for
-a scanned request or a unit go through the [shippy CLI](https://github.com/insidebooksproject/shippy).
-It looks addresses up with Google Maps autocomplete, takes the return address
+Texas when the address is typed in ("Ship Manual"). Packages for a scanned
+request or a unit go through the
+[shippy CLI](https://github.com/insidebooksproject/shippy). It looks addresses up with Google Maps autocomplete, takes the return address
 from the IBP server, buys the cheapest USPS postage through EasyPost, and
 prints the label, with the IBP logo, through the shared
 [ibp-printing](https://github.com/insidebooksproject/printing) library.
