@@ -1,5 +1,5 @@
 version = 1
-revision = 3
+revision = 5
 requires-python = ">=3.12"
 resolution-markers = [
     "python_full_version >= '3.15'",
@@ -236,17 +236,12 @@ sdist = { url = "https://files.pythonhosted.org/packages/fe/26/bca4d737a9acea25e
 
 [[package]]
 name = "ibp-printing"
-version = "0.4.0"
-source = { git = "https://github.com/insidebooksproject/printing?tag=v0.4.0#842f82c410b90aeddd8d38be48d8999762618439" }
+version = "0.5.0"
+source = { git = "https://github.com/insidebooksproject/printing?tag=v0.5.0#26102e25360e329b3bdb030faa58d3b292a197aa" }
 dependencies = [
     { name = "pillow" },
     { name = "pywin32", marker = "sys_platform == 'win32'" },
     { name = "wmi", marker = "sys_platform == 'win32'" },
-]
-
-[package.optional-dependencies]
-linux = [
-    { name = "pycups" },
 ]
 
 [[package]]
@@ -574,12 +569,6 @@ wheels = [
 ]
 
 [[package]]
-name = "pycups"
-version = "2.0.4"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/96/c4/b077f0422cd031e4f3a47c75ce0bcf77f2f2e5bf3648f6945a4d09fd44a5/pycups-2.0.4.tar.gz", hash = "sha256:843e385c1dbf694996ca84ef02a7f30c28376035588f5fbeacd6bae005cf7c8d", size = 65105, upload-time = "2024-04-18T06:20:40.589Z" }
-
-[[package]]
 name = "pydantic"
 version = "2.12.5"
 source = { registry = "https://pypi.org/simple" }
@@ -819,7 +808,7 @@ dependencies = [
 
 [package.optional-dependencies]
 linux = [
-    { name = "ibp-printing", extra = ["linux"] },
+    { name = "ibp-printing" },
 ]
 
 [package.dev-dependencies]
@@ -833,8 +822,8 @@ dev = [
 requires-dist = [
     { name = "easypost", specifier = ">=10.3.0" },
     { name = "googlemaps", specifier = ">=4.10.0" },
-    { name = "ibp-printing", git = "https://github.com/insidebooksproject/printing?tag=v0.4.0" },
-    { name = "ibp-printing", extras = ["linux"], marker = "extra == 'linux'", git = "https://github.com/insidebooksproject/printing?tag=v0.4.0" },
+    { name = "ibp-printing", git = "https://github.com/insidebooksproject/printing?tag=v0.5.0" },
+    { name = "ibp-printing", extras = ["linux"], marker = "extra == 'linux'", git = "https://github.com/insidebooksproject/printing?tag=v0.5.0" },
     { name = "pillow", specifier = ">=12.2.0" },
     { name = "pydantic", specifier = ">=2.12.5" },
     { name = "pyside6", specifier = ">=6.8.0" },
