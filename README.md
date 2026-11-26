@@ -211,8 +211,6 @@ automatically when the printer is working.
 - If the IBP label watcher (from ibp-printing) is running, the label prints
   automatically as soon as a label printer is working - plug in or fix the
   printer and wait.
-- To print the saved file by hand instead, delete it from `to-print\` after
-  printing it so the watcher does not print it too.
 - Check that your printer is online and selected correctly.
 
 The app only refunds right away when the label could not be downloaded or
