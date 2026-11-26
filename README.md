@@ -1,10 +1,13 @@
 # shippy-gui
 
-`shippy-gui` is a PySide6 GUI application designed to streamline the process of printing shipping labels for books destined for incarcerated individuals in Texas. It integrates with the EasyPost API for postage purchasing and label generation, and uses Google Maps for address autocomplete.
-
-## Purpose
-
-The primary goal of this application is to provide an intuitive graphical interface for the Inside Books Project (IBP) to generate and print accurate shipping labels for manual address entry. It automates the postage purchasing and label creation process using EasyPost for carrier services and Google Maps for address lookup assistance.
+`shippy-gui` is the PySide6 app the Inside Books Project (IBP) shipping
+stations use to print shipping labels for books sent to people incarcerated in
+Texas when the address is typed in ("Ship Manual"). Packages for a scanned
+request or a unit go through the
+[shippy CLI](https://github.com/insidebooksproject/shippy). It looks addresses up with Google Maps autocomplete, takes the return address
+from the IBP server, buys the cheapest USPS postage through EasyPost, and
+prints the label, with the IBP logo, through the shared
+[ibp-printing](https://github.com/insidebooksproject/printing) library.
 
 ## About Inside Books Project
 
@@ -12,71 +15,66 @@ Inside Books Project is an Austin-based community service volunteer organization
 
 ## Features
 
-- **Manual Address Entry**: Single window interface for entering recipient addresses
-- **Google Maps Integration**: Address autocomplete and geocoding for accurate address entry
-- **EasyPost API Integration**: Utilizes the EasyPost API for purchasing postage and generating Library Mail shipping labels
-- **Label Printing**: Generates and prints postage labels with IBP logo overlay when available
-- **Cross-Platform Printing**: Supports Windows (win32print) and Linux (CUPS) printing via the shared [ibp-printing](https://github.com/insidebooksproject/printing) library
 - **Settings Dialog**: GUI for configuring the IBP server URL and API keys
-- **Error Handling**: Labels that cannot reach a printer are saved to a print queue folder for the IBP label watcher (postage kept); automatic refund if the label itself cannot be downloaded; comprehensive error messages
+- **Error Handling**: Labels that cannot reach a printer are saved to a print queue folder for the IBP label watcher (postage kept); automatic refund if the label itself cannot be downloaded
 - **Async Operations**: Non-blocking UI using QThread for network operations
 - **Configurable Font Size**: Adjust UI font size for accessibility
 
-## Installation
+## Running shippy-gui
 
-To set up the `shippy-gui` application, ensure you have Python 3.12+ and [uv](https://github.com/astral-sh/uv) installed.
-
-### Option 1: Local Development Installation
-
-1.  **Clone the repository:**
-
-    ```bash
-    git clone https://github.com/insidebooksproject/shippy-gui.git
-    cd shippy-gui
-    ```
-
-    Printing comes from the shared
-    [`ibp-printing`](https://github.com/insidebooksproject/printing) library, pinned
-    to a release tag in `pyproject.toml` and installed automatically.
-
-2.  **Create and activate a virtual environment:**
-
-    ```bash
-    uv venv
-    source .venv/bin/activate
-    ```
-
-    On Windows, use `.venv\Scripts\activate`.
-
-3.  **Install dependencies:**
-
-    The project dependencies are defined in `pyproject.toml`. Sync them using `uv`:
-
-    ```bash
-    uv sync
-    ```
-
-    For platform-specific printing support, add the appropriate extra:
-
-    **Linux (CUPS):** installs `pycups` (needs the libcups development
-    headers; without it ibp-printing falls back to `lpstat`/`lp`)
-    ```bash
-    uv sync --extra linux
-    ```
-
-    **Windows (win32print):** `pywin32` and `WMI` are installed automatically on
-    Windows; the extra is kept for compatibility
-    ```bash
-    uv sync --extra windows
-    ```
-
-### Option 2: Direct Execution with uvx
-
-You can run the application directly from the git repository without cloning using `uvx`:
+The stations run the `deploy` branch straight from GitHub with
+[uv](https://github.com/astral-sh/uv)'s `uvx` (see [Releasing](#releasing)):
 
 ```bash
-uvx --from git+https://github.com/insidebooksproject/shippy-gui.git@main shippy-gui
+uvx --from git+https://github.com/insidebooksproject/shippy-gui.git@deploy shippy-gui
 ```
+
+The shipping laptops' SHIP MANUAL shortcut runs
+`uvx --from "shippy-gui[windows] @ git+https://github.com/insidebooksproject/shippy-gui.git@deploy" shippy-gui`;
+the `windows` extra is empty and kept only so that command keeps working.
+shippy-gui reads `config.ini` from the folder it is started in (see
+[Configuration](#configuration)), so start it from the folder that holds it.
+
+### Creating a Desktop Shortcut (Windows)
+
+To create a Windows desktop shortcut that launches shippy-gui, you can use PowerShell:
+
+```powershell
+powershell.exe -NoExit -Command "& { & 'uvx' --from 'git+https://github.com/insidebooksproject/shippy-gui.git@deploy' 'shippy-gui' }"
+```
+
+To create the shortcut:
+
+1. Right-click on your desktop
+2. Select **New → Shortcut**
+3. Paste the PowerShell command above as the location
+4. Name the shortcut "Shippy GUI" (or your preferred name)
+5. Click **Finish**
+6. In the shortcut's **Properties**, set **Start in** to the folder with `config.ini`
+
+#### Using a `.cmd` Launcher (Recommended)
+
+For more reliable startup and an explicit config path, create a small `.cmd` file and point a shortcut at it.
+
+Example `shippy-gui.cmd`:
+
+```bat
+@echo off
+setlocal
+
+REM Set working directory (where your config lives)
+cd /d "C:\InsideBooks\ShippyGUI"
+
+REM Run the app
+uvx --from git+https://github.com/insidebooksproject/shippy-gui.git@deploy shippy-gui
+```
+
+To create the shortcut:
+
+1. Save the `.cmd` file in a stable location
+2. Right-click on your desktop and select **New → Shortcut**
+3. Browse to the `.cmd` file
+4. Name the shortcut and click **Finish**
 
 ## Configuration
 
@@ -84,12 +82,12 @@ The application requires a configuration file for the IBP server, the EasyPost A
 
 ### Initial Setup
 
-On first run, the application requires a `config.ini` file in the current working directory. If it is missing, the application will create one from the packaged `config.example.ini` and exit with a configuration error so you can open Settings and fill in the required values. If it is incomplete, the application will also exit with a configuration error. Settings are always saved to `config.ini`.
+shippy-gui reads `config.ini` from the current working directory. If it is missing, the app creates one from the packaged `config.example.ini`, shows a configuration error and opens Settings so you can fill in the required values; if it is incomplete or invalid, it shows the error and opens Settings too. If you cancel Settings, or the values are still invalid, the app exits. Settings are always saved to `config.ini`.
 
 ### Manual Configuration
 
 1.  Copy `config.example.ini` to `config.ini` in your working directory.
-    - Note: `config.example.ini` is included in the repo for development convenience and is also bundled inside the installed package for automatic bootstrap.
+    - Note: `config.example.ini` is in the repo root and also bundled inside the installed package for automatic bootstrap.
 2.  Populate it with the IBP server URL and your API keys:
 
     ```ini
@@ -114,6 +112,10 @@ On first run, the application requires a `config.ini` file in the current workin
     - `easypost.apikey`: Your EasyPost API key
     - `googlemaps.apikey`: Your Google Maps API key (for address autocomplete)
     - `ibp.url`: The IBP server's API base URL (source of the return address)
+    - `ibp.apikey` (optional, also in Settings): stored but not sent; the IBP server needs no key
+    - `[parcel]` (optional): `length`, `width` and `height` in inches of the
+      box declared unless the small-box checkbox is ticked (default 20 x 14 x 10).
+      The small box is always declared as 12 x 12 x 12.
 
 ### Settings Dialog
 
@@ -126,71 +128,7 @@ You can also configure these settings from within the application:
 
 The settings dialog validates your configuration and saves it to `config.ini`.
 
-## Usage
-
-### Running from Local Installation
-
-Once you've installed the dependencies in your virtual environment, you can run the application:
-
-```bash
-python -m shippy_gui
-```
-
-Or if you installed it as a package:
-
-```bash
-shippy-gui
-```
-
-### Running with uvx
-
-Run directly from the repository without local installation:
-
-```bash
-uvx --from git+https://github.com/insidebooksproject/shippy-gui.git@main shippy-gui
-```
-
-### Creating a Desktop Shortcut (Windows)
-
-To create a Windows desktop shortcut that launches shippy-gui, you can use PowerShell:
-
-```powershell
-powershell.exe -NoExit -Command "& { & 'uvx' --from 'git+https://github.com/insidebooksproject/shippy-gui.git@main' 'shippy-gui' }"
-```
-
-To create the shortcut:
-
-1. Right-click on your desktop
-2. Select **New → Shortcut**
-3. Paste the PowerShell command above as the location
-4. Name the shortcut "Shippy GUI" (or your preferred name)
-5. Click **Finish**
-
-#### Using a `.cmd` Launcher (Recommended)
-
-For more reliable startup and an explicit config path, create a small `.cmd` file and point a shortcut at it.
-
-Example `shippy-gui.cmd`:
-
-```bat
-@echo off
-setlocal
-
-REM Set working directory (where your config lives)
-cd /d "C:\InsideBooks\ShippyGUI"
-
-REM Run the app
-uvx --from git+https://github.com/insidebooksproject/shippy-gui.git@main shippy-gui
-```
-
-To create the shortcut:
-
-1. Save the `.cmd` file in a stable location
-2. Right-click on your desktop and select **New → Shortcut**
-3. Browse to the `.cmd` file
-4. Name the shortcut and click **Finish**
-
-### Application Workflow
+## Application Workflow
 
 1. **Configure settings** (File → Settings) on first run
 2. **Enter recipient address**:
@@ -198,9 +136,20 @@ To create the shortcut:
    - Address fields auto-populate when you select a result
    - All fields are editable for manual adjustment
 3. **Enter package weight** in pounds (1-70 range)
-4. **Select printer** from the dropdown
+   - At 4 pounds and up, tick the box-size checkbox only if the box is 1,728
+     cubic inches or less (each side rounded up to a whole inch) with no side
+     over 22 inches; its tooltip has examples. Leave it unticked if unsure.
+     Changing the address clears it.
+4. **Select printer** from the dropdown (it updates by itself a few seconds
+   after a printer is plugged in; **Refresh** scans right away)
 5. **Click "Create Label"**:
-   - Application purchases postage via EasyPost (Library Mail rate), tagging the shipment's `reference` as `ibp1:manual` so the IBP server can tell typed-address labels from request and unit labels (the `shippy` CLI tags those `ibp1:req:<code>` and `ibp1:unit:<jurisdiction>:<unit name>`)
+   - If no label printer is found, a "No label printer detected" window waits
+     for one and closes by itself when it appears. **Continue anyway** buys
+     the label and saves it to `Downloads\to-print\` for the label watcher;
+     **Cancel** buys nothing.
+   - Application buys the cheapest USPS rate via EasyPost (Library Mail, or
+     Ground Advantage when the small box makes it cheaper) and shows the rates
+     it compared, tagging the shipment's `reference` as `ibp1:manual` so the IBP server can tell typed-address labels from request and unit labels (the `shippy` CLI tags those `ibp1:req:<code>` and `ibp1:unit:<jurisdiction>:<unit name>`)
    - Downloads label from EasyPost and overlays IBP logo from `assets/logo.jpg` when available
    - Prints to selected printer
    - Shows tracking number on success
@@ -209,14 +158,17 @@ To create the shortcut:
 
 ## Platform Support
 
-Printer discovery and direct printing are provided by `ibp-printing`:
+Printer discovery and direct printing are provided by `ibp-printing`. Only
+USB label printers are listed:
 
-- **Windows**: Uses win32print. Only USB label printers are listed: the print
-  queue name must end with the printer's USB ID (e.g. `Zebra 20d1:7008`,
-  `Zebra_20d1:7008` or `Zebra-20d1:7008`) and that USB device must be plugged
-  in. Printers whose USB device or queue reports a problem are still listed,
-  just lower down.
-- **Linux**: Uses CUPS via `lp`; every CUPS queue is listed.
+- **Direct USB**: a supported printer (the PM2411BT the shipping laptops use)
+  is printed to directly over USB, with no print queue or naming rule, and is
+  listed first, e.g. `PM2411BT (USB direct, serial ...)`.
+- **Print queues** (win32print on Windows, CUPS on Linux): the queue name must
+  end with the printer's USB ID (e.g. `Zebra 20d1:7008`, `Zebra_20d1:7008` or
+  `Zebra-20d1:7008`; CUPS names cannot contain spaces) and that USB device
+  must be plugged in. Printers whose USB device or queue reports a problem are
+  still listed, just lower down.
 
 Shift + Click on "Create Label" uses the Qt system print dialog instead.
 Canceling that dialog refunds the postage. If printing cannot even start, the
@@ -243,9 +195,11 @@ above also appear in the shippy-gui log file.
 - Ensure `config.ini` exists and is properly formatted
 - Use File → Settings to validate and save your configuration
 
-### "Failed to verify address" warning
-- This is non-blocking; you can proceed with shipment
+### "Failed to verify recipient address" warning
+- This is non-blocking; the label is still bought
 - Double-check the address manually before shipping
+- "Failed to verify return address" means the return address in the IBP
+  server's shipping settings (editable in the IBP web app) needs checking
 
 ### Label did not print
 If the label cannot be sent to any printer, the postage is kept and the label,
@@ -292,7 +246,9 @@ automatically."
 
 ### Printer missing from the list
 - Click **Refresh** after plugging in or turning on the printer
-- Run `uv run diagnose-printers` to see every print queue and why it is or is not listed
+- Run `diagnose-printers` to see every printer and print queue and why it is or is not listed:
+  `uvx --from git+https://github.com/insidebooksproject/shippy-gui.git@deploy diagnose-printers`
+  on a station, or `uv run diagnose-printers` in a checkout
 - Send the `printer-shippy-gui.log`/`printer-shippy-gui.jsonl` files (see [Printer logs](#printer-logs)) when reporting a problem
 
 ### Google Maps autocomplete not working
@@ -302,18 +258,88 @@ automatically."
 
 ## Development
 
-This application shares core shipping logic with the [shippy CLI tool](https://github.com/insidebooksproject/shippy). The following modules are reused:
-- `core/services.py` - EasyPost wrapper
-- `core/addresses.py` - Google Maps geocoding
-- `core/models.py` - Pydantic configuration models
+Install Python 3.12+ and [uv](https://github.com/astral-sh/uv), then:
 
-For development setup, follow the Local Development Installation instructions above.
+1.  **Clone the repository:**
+
+    ```bash
+    git clone https://github.com/insidebooksproject/shippy-gui.git
+    cd shippy-gui
+    ```
+
+2.  **Create and activate a virtual environment:**
+
+    ```bash
+    uv venv
+    source .venv/bin/activate
+    ```
+
+    On Windows, use `.venv\Scripts\activate`.
+
+3.  **Install dependencies** (defined in `pyproject.toml`):
+
+    ```bash
+    uv sync
+    ```
+
+    For platform-specific printing support, add the appropriate extra:
+
+    **Linux (CUPS):** installs `pycups` (needs the libcups development
+    headers; without it ibp-printing falls back to `lpstat`/`lp`)
+    ```bash
+    uv sync --extra linux
+    ```
+
+    **Windows (win32print):** `pywin32` and `WMI` are installed automatically on
+    Windows; the extra is kept for compatibility
+    ```bash
+    uv sync --extra windows
+    ```
+
+4.  **Run it** from the folder with `config.ini`:
+
+    ```bash
+    python -m shippy_gui
+    ```
+
+    or `shippy-gui`.
 
 To enable Git hooks for linting and formatting checks:
 
 ```bash
 uv run pre-commit install
 ```
+
+Checks, tests and the code conventions are in [CLAUDE.md](CLAUDE.md).
+
+Printing comes from the shared
+[`ibp-printing`](https://github.com/insidebooksproject/printing) library, pinned
+to a release tag in `pyproject.toml` (`[tool.uv.sources]`) and installed
+automatically. To develop both together, temporarily point it at a checkout in
+`../printing` with `{ path = "../printing", editable = true }`. Tag and push a
+new ibp-printing release before pinning it here, or the stations fail to
+install shippy-gui.
+
+shippy-gui does not depend on the [shippy CLI](https://github.com/insidebooksproject/shippy):
+`core/services.py` (EasyPost), `core/addresses.py` (Google Maps) and
+`core/models.py` (config) are its own versions of the same logic, so a fix in
+one app does not reach the other. What the two share is ibp-printing and the
+IBP server.
+
+### Releasing
+
+`main` and `deploy` stay at the same tip. Merge feature branches straight
+into `main` (no pull requests), test, then release by fast-forwarding
+`deploy` to it:
+
+```bash
+git push origin main:deploy
+```
+
+The shipping laptops run `@deploy` with `uvx` at every launch, and the kiosk
+image installs shippy-gui from `deploy` as a uv tool, so both pick up the
+release at the next launch. Never commit to `deploy` directly. To roll back,
+push the previous commit to `deploy` with `--force-with-lease`.
 
 ## License
 
