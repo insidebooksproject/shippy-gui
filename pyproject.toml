@@ -34,7 +34,7 @@ shippy-gui = "shippy_gui.__main__:main"
 
 [tool.uv.sources]
 # For local development against a checkout next to this repo, temporarily use:
-#   ibp-printing = { path = "../ibp-printing", editable = true }
+#   ibp-printing = { path = "../printing", editable = true }
 ibp-printing = { git = "https://github.com/insidebooksproject/printing", tag = "v0.4.0" }
 
 [build-system]
