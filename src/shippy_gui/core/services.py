@@ -19,6 +19,26 @@ from shippy_gui.core.constants import (
 from shippy_gui.core.models import AddressBase, ParcelConfig
 
 
+class PurchaseError(Exception):
+    """The buy request failed in a way that may still have bought postage.
+
+    The charge can go through even when the response is lost; the weekly
+    refund job refunds any label that was bought but never used.
+    """
+
+
+def purchase_may_have_completed(error: Exception) -> bool:
+    """Whether a buy request that raised ``error`` may still have bought postage.
+
+    A 4xx answer (other than 408, a timeout) means EasyPost turned the
+    purchase down, e.g. for an empty wallet. No answer, a timeout, a 5xx or
+    any other exception may have come after the charge went through.
+    """
+    status = getattr(error, "http_status", None)
+    refused = isinstance(status, int) and 400 <= status < 500 and status != 408
+    return not refused
+
+
 def small_box_problem(length: float, width: float, height: float) -> str:
     """Why a box can't be declared as "small", or "" if it can.
 
@@ -69,6 +89,11 @@ class ShipmentService:
         ``small_box`` declares the parcel as a 12 in cube (at most one cubic
         foot), so Ground Advantage is priced on actual weight; otherwise the
         configured, larger dimensions are declared.
+
+        Raises:
+            PurchaseError: the buy request failed and may still have bought
+                postage (see ``purchase_may_have_completed``). Anything else
+                raised, before or by the buy request, means nothing was bought.
         """
         if small_box:
             # Any qualifying box is declared as the 12 in cube, the top USPS
@@ -106,7 +131,12 @@ class ShipmentService:
         )
 
         rate = shipment.lowest_rate([SHIPMENT_CARRIER])
-        return self.client.shipment.buy(shipment.id, rate=rate)
+        try:
+            return self.client.shipment.buy(shipment.id, rate=rate)
+        except Exception as error:
+            if purchase_may_have_completed(error):
+                raise PurchaseError(str(error)) from error
+            raise
 
     def refund_shipment(self, shipment_id: str) -> None:
         """Refund a shipment."""

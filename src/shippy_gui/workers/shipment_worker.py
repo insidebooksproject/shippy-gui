@@ -5,16 +5,34 @@ from typing import Optional
 
 from PySide6.QtCore import QThread, Signal  # type: ignore[import-untyped] # pylint: disable=no-name-in-module
 
-from shippy_gui.core.ibp_server import IbpServerError, fetch_return_address
+from shippy_gui.core.ibp_server import (
+    IbpServerError,
+    IbpServerUnreachable,
+    fetch_return_address,
+)
 from shippy_gui.core.models import RecipientAddress
 from shippy_gui.core.services import ShipmentService
 from shippy_gui.core.shipment_workflow import (
+    CHECK_PRINTER_ADVICE,
+    PURCHASE_UNCERTAIN_MESSAGE,
     ShipmentWorkflowInput,
     ShipmentWorkflow,
     ShipmentWorkflowStatus,
 )
 
 logger = logging.getLogger(__name__)
+
+# What the volunteer is told when the return address can't be read; the
+# technical details go to the log.
+SERVER_UNREACHABLE_MESSAGE = (
+    "The IBP server can't be reached, so no postage was bought. Check that "
+    "this laptop is online, then try this shipment again."
+)
+SERVER_BAD_ADDRESS_MESSAGE = (
+    "The IBP server didn't send a usable return address, so no postage was "
+    "bought. Try this shipment again; if it keeps happening, the return "
+    "address in the IBP server's shipping settings needs fixing."
+)
 
 
 class ShipmentWorker(
@@ -75,30 +93,32 @@ class ShipmentWorker(
         """Execute the shipment workflow, reporting any unexpected crash."""
         try:
             self._run()
-        except Exception as error:  # pylint: disable=broad-exception-caught
+        except Exception:  # pylint: disable=broad-exception-caught
             # Never die silently: by now postage may have been bought and the
             # label may have been sent, so tell the volunteer rather than refund.
+            # Unused labels are refunded automatically, so trying again is safe.
             logger.exception("Shipment worker crashed")
-            shipment_id = getattr(self.shipment, "tracking_code", None) or getattr(
+            shipment_ref = getattr(self.shipment, "tracking_code", None) or getattr(
                 self.shipment, "id", None
             )
-            details = f" Shipment: {shipment_id}." if shipment_id else ""
-            self.error.emit(
-                f"Unexpected error: {error}.{details} Postage may already have "
-                "been bought and the label may have been sent to the printer - "
-                "check the printer and EasyPost before trying again."
-            )
+            if shipment_ref is None:
+                self.error.emit(PURCHASE_UNCERTAIN_MESSAGE)
+            else:
+                self.error.emit(
+                    "Something went wrong after postage was bought (tracking "
+                    f"{shipment_ref}). {CHECK_PRINTER_ADVICE}"
+                )
 
     def _run(self):
         self.progress.emit("Getting return address from the IBP server...")
         try:
             from_address = fetch_return_address(self.ibp_url)
         except IbpServerError as error:
-            logger.error("Return address lookup failed: %s", error)
+            logger.error("Return address lookup failed", exc_info=True)
             self.error.emit(
-                f"Could not get the return address from the IBP server: {error}. "
-                "No postage was bought. Check that the IBP server is running "
-                "and the IBP URL in Settings, then try again."
+                SERVER_UNREACHABLE_MESSAGE
+                if isinstance(error, IbpServerUnreachable)
+                else SERVER_BAD_ADDRESS_MESSAGE
             )
             return
 

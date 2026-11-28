@@ -5,7 +5,11 @@ from unittest import mock
 
 import requests
 
-from shippy_gui.core.ibp_server import IbpServerError, fetch_return_address
+from shippy_gui.core.ibp_server import (
+    IbpServerError,
+    IbpServerUnreachable,
+    fetch_return_address,
+)
 
 SETTINGS = {
     "return_address": {
@@ -48,23 +52,27 @@ class FetchReturnAddressTests(unittest.TestCase):
                 self.assertEqual(address.zipcode, "78703")
 
     def test_unreachable_server_raises(self, get):
-        get.side_effect = requests.ConnectionError("refused")
+        for error in (requests.ConnectionError("refused"), requests.Timeout("slow")):
+            with self.subTest(error=type(error).__name__):
+                get.side_effect = error
 
-        with self.assertRaisesRegex(IbpServerError, "could not reach"):
-            fetch_return_address("http://ibp.test/api")
+                with self.assertRaisesRegex(IbpServerUnreachable, "could not reach"):
+                    fetch_return_address("http://ibp.test/api")
 
     def test_http_error_raises(self, get):
         get.return_value = response({"detail": "Not Found"}, status=404)
 
-        with self.assertRaisesRegex(IbpServerError, "404"):
+        with self.assertRaisesRegex(IbpServerUnreachable, "404"):
             fetch_return_address("http://ibp.test/api")
 
     def test_incomplete_address_raises(self, get):
         body = {"return_address": {**SETTINGS["return_address"], "city": ""}}
         get.return_value = response(body)
 
-        with self.assertRaisesRegex(IbpServerError, "incomplete"):
+        with self.assertRaisesRegex(IbpServerError, "incomplete") as caught:
             fetch_return_address("http://ibp.test/api")
+
+        self.assertNotIsInstance(caught.exception, IbpServerUnreachable)
 
     def test_unexpected_body_raises(self, get):
         get.return_value = response({"something": "else"})

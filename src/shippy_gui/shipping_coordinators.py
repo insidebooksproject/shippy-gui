@@ -391,9 +391,13 @@ class ShipmentFlowCoordinator:  # pylint: disable=too-many-instance-attributes
             shipment_service.refund_shipment(shipment.id)
             label_journal.update_status(shipment, label_journal.STATUS_REFUNDED)
             self._status_presenter.set_status(f"{reason}. Refunded.", "warning")
-        except Exception as error:  # pylint: disable=broad-exception-caught
-            self._status_presenter.set_status("Refund failed", "error")
-            QMessageBox.critical(self._parent_widget, "Refund Error", str(error))
+        except Exception:  # pylint: disable=broad-exception-caught
+            # Nothing for the volunteer to do: the weekly refund job refunds
+            # the unused label, so no dialog, just the status line.
+            logger.error("Refund of %s failed", shipment.id, exc_info=True)
+            self._status_presenter.set_status(
+                f"{reason}. The unused label is refunded automatically.", "warning"
+            )
 
     def _with_rates(self, message: str) -> str:
         """Append the quoted-rate comparison of the last label, if any."""

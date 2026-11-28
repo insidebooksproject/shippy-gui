@@ -21,13 +21,29 @@ from shippy_gui.core.constants import (
 from shippy_gui.core.misc import grab_png_from_url
 from shippy_gui.core.models import RecipientAddress, ReturnAddressConfig
 from shippy_gui.core.rates import RateSummary, summarize_rates
-from shippy_gui.core.services import ShipmentService
+from shippy_gui.core.services import PurchaseError, ShipmentService
 from shippy_gui.printing.printer_manager import print_image
 
 logger = logging.getLogger(__name__)
 
 # PrintError text when the volunteer continued without a label printer.
 NO_PRINTER_ERROR = "no label printer was plugged in when the label was created"
+
+# What the volunteer is told when creating a label fails; the technical
+# details go to the log. Unused labels are refunded automatically, so trying
+# again is always safe.
+NOT_BOUGHT_MESSAGE = (
+    "The label could not be created. No postage was bought. Try this shipment again."
+)
+PAYMENT_FAILED_MESSAGE = (
+    "The label could not be created. The EasyPost account can't pay for "
+    "postage right now. Tell a coordinator; no postage was bought."
+)
+PURCHASE_UNCERTAIN_MESSAGE = (
+    "The label could not be created. The purchase may not have completed. Try "
+    "this shipment again; an unused label is refunded automatically."
+)
+LABEL_NOT_PREPARED_MESSAGE = "The label could not be prepared after postage was bought"
 
 ProgressCallback = Callable[[str], None]
 WarningCallback = Callable[[str], None]
@@ -149,23 +165,32 @@ class ShipmentWorkflow:  # pylint: disable=too-few-public-methods
                 rate_summary=rate_summary,
             )
 
-        except easypost.errors.ApiError as error:
-            message = f"EasyPost API error: {error}"
-        except Exception as error:  # pylint: disable=broad-exception-caught
-            message = f"Unexpected error: {error}"
-
-        if shipment is None:
+        except PurchaseError:
+            # The buy request itself failed: the charge may have gone through.
+            logger.error(
+                "Buying postage failed; it may have gone through", exc_info=True
+            )
             return ShipmentWorkflowResult(
                 status=ShipmentWorkflowStatus.ERROR,
-                message=f"Shipment creation failed: {message}",
+                message=PURCHASE_UNCERTAIN_MESSAGE,
             )
-        # Postage was bought but there is no label image to print or save.
-        logger.error("Label preparation failed after purchase: %s", message)
-        return self.refund_after_failure(
-            shipment,
-            f"Label could not be prepared after buying postage: {message}",
-            on_progress=progress,
-        )
+        except Exception as error:  # pylint: disable=broad-exception-caught
+            if shipment is None:
+                # Failed before the buy, or EasyPost turned the buy down (4xx).
+                logger.error("Shipment creation failed; nothing bought", exc_info=True)
+                return ShipmentWorkflowResult(
+                    status=ShipmentWorkflowStatus.ERROR,
+                    message=(
+                        PAYMENT_FAILED_MESSAGE
+                        if _is_payment_error(error)
+                        else NOT_BOUGHT_MESSAGE
+                    ),
+                )
+            # Postage was bought but there is no label image to print or save.
+            logger.error("Label preparation failed after purchase", exc_info=True)
+            return self.refund_after_failure(
+                shipment, LABEL_NOT_PREPARED_MESSAGE, on_progress=progress
+            )
 
     @staticmethod
     def _summarize_rates(
@@ -336,22 +361,28 @@ class ShipmentWorkflow:  # pylint: disable=too-few-public-methods
             label_journal.update_status(shipment, label_journal.STATUS_REFUNDED)
             return ShipmentWorkflowResult(
                 status=ShipmentWorkflowStatus.ERROR,
-                message=f"{error_message}. Refund requested.",
+                message=f"{error_message}. Its postage is being refunded. Try "
+                "this shipment again.",
                 shipment=shipment,
                 refund_requested=True,
             )
-        except easypost.errors.ApiError as refund_error:
+        except Exception:  # pylint: disable=broad-exception-caught
+            # The weekly refund job refunds the unused label instead.
+            logger.error("Refund of %s failed", shipment.id, exc_info=True)
             return ShipmentWorkflowResult(
                 status=ShipmentWorkflowStatus.ERROR,
-                message=f"{error_message}. Refund also failed: {refund_error}",
+                message=f"{error_message}. Try this shipment again; the unused "
+                "label is refunded automatically.",
                 shipment=shipment,
             )
-        except Exception as refund_error:  # pylint: disable=broad-exception-caught
-            return ShipmentWorkflowResult(
-                status=ShipmentWorkflowStatus.ERROR,
-                message=f"{error_message}. Refund also failed: {refund_error}",
-                shipment=shipment,
-            )
+
+
+def _is_payment_error(error: Exception) -> bool:
+    """Whether EasyPost refused the buy because the account can't pay (402)."""
+    return (
+        isinstance(error, easypost.errors.PaymentError)
+        or getattr(error, "http_status", None) == 402
+    )
 
 
 def _shipment_ref(shipment: Any) -> str:

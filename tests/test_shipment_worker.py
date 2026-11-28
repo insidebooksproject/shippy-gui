@@ -4,8 +4,16 @@ import unittest
 from types import SimpleNamespace
 from unittest import mock
 
-from shippy_gui.core.ibp_server import IbpServerError
-from shippy_gui.workers.shipment_worker import ShipmentWorker
+from shippy_gui.core.ibp_server import IbpServerError, IbpServerUnreachable
+from shippy_gui.core.shipment_workflow import (
+    CHECK_PRINTER_ADVICE,
+    PURCHASE_UNCERTAIN_MESSAGE,
+)
+from shippy_gui.workers.shipment_worker import (
+    SERVER_BAD_ADDRESS_MESSAGE,
+    SERVER_UNREACHABLE_MESSAGE,
+    ShipmentWorker,
+)
 
 
 class ShipmentWorkerCrashTests(unittest.TestCase):
@@ -37,8 +45,7 @@ class ShipmentWorkerCrashTests(unittest.TestCase):
         with self.assertLogs("shippy_gui.workers.shipment_worker", "ERROR"):
             worker.run()
 
-        self.assertEqual(len(errors), 1)
-        self.assertIn("boom", errors[0])
+        self.assertEqual(errors, [PURCHASE_UNCERTAIN_MESSAGE])
 
     def test_crash_after_purchase_names_shipment_and_does_not_refund(self):
         worker = self.make_worker()
@@ -53,8 +60,13 @@ class ShipmentWorkerCrashTests(unittest.TestCase):
         with self.assertLogs("shippy_gui.workers.shipment_worker", "ERROR"):
             worker.run()
 
-        self.assertEqual(len(errors), 1)
-        self.assertIn("9400TEST", errors[0])
+        self.assertEqual(
+            errors,
+            [
+                "Something went wrong after postage was bought (tracking "
+                f"9400TEST). {CHECK_PRINTER_ADVICE}"
+            ],
+        )
         worker.workflow.refund_after_failure.assert_not_called()
 
 
@@ -73,18 +85,26 @@ class ShipmentWorkerReturnAddressTests(ShipmentWorkerCrashTests):
         self.assertIs(workflow_input.from_address, mock.sentinel.return_address)
 
     def test_server_failure_buys_nothing(self):
-        worker = self.make_worker()
-        self.fetch.side_effect = IbpServerError("could not reach it")
-        errors: list[str] = []
-        worker.error.connect(errors.append)
+        for error, message in (
+            (IbpServerUnreachable("could not reach it"), SERVER_UNREACHABLE_MESSAGE),
+            (IbpServerError("incomplete address"), SERVER_BAD_ADDRESS_MESSAGE),
+        ):
+            with self.subTest(error=type(error).__name__):
+                worker = self.make_worker()
+                self.fetch.side_effect = error
+                errors: list[str] = []
+                worker.error.connect(errors.append)
 
-        with self.assertLogs("shippy_gui.workers.shipment_worker", "ERROR"):
-            worker.run()
+                with self.assertLogs(
+                    "shippy_gui.workers.shipment_worker", "ERROR"
+                ) as logs:
+                    worker.run()
 
-        worker.workflow.prepare_label.assert_not_called()
-        self.assertEqual(len(errors), 1)
-        self.assertIn("could not reach it", errors[0])
-        self.assertIn("No postage was bought", errors[0])
+                worker.workflow.prepare_label.assert_not_called()
+                self.assertEqual(errors, [message])
+                self.assertIn("no postage was bought", message)
+                # The technical detail goes to the log, not the volunteer.
+                self.assertIs(logs.records[0].exc_info[1], error)
 
 
 if __name__ == "__main__":

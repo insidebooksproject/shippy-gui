@@ -202,6 +202,26 @@ above also appear in the shippy-gui log file.
 - "Failed to verify return address" means the return address in the IBP
   server's shipping settings (editable in the IBP web app) needs checking
 
+### "Shipment Error"
+The box says in plain words whether postage was bought; the technical details
+(the EasyPost or IBP server error) go to the shippy-gui log file
+(`ui.log_file`). The form is kept, so trying again is one click.
+
+- "No postage was bought": creating the label failed before buying (the
+  addresses, the quote or no usable rate), or EasyPost turned the purchase
+  down. Try the shipment again.
+- "The EasyPost account can't pay for postage right now": EasyPost refused the
+  purchase for lack of funds; nothing was bought. Tell a coordinator, who can
+  top up the EasyPost wallet.
+- "The purchase may not have completed": the buy request got no answer, timed
+  out or hit an EasyPost server error, so the charge may have gone through.
+  Try the shipment again; if the first label was bought, it is never used and
+  the weekly refund job refunds it.
+- "The IBP server can't be reached": the return address could not be read, so
+  nothing was bought. Check that the laptop is online and try again.
+- "The IBP server didn't send a usable return address": the return address in
+  the IBP server's shipping settings (IBP web app) needs fixing.
+
 ### Label did not print
 If the label cannot be sent to any printer, the postage is kept and the label,
 with the IBP logo, is saved to the print queue folder `Downloads\to-print\`.
