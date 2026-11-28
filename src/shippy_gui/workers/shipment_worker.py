@@ -13,6 +13,8 @@ from shippy_gui.core.ibp_server import (
 from shippy_gui.core.models import RecipientAddress
 from shippy_gui.core.services import ShipmentService
 from shippy_gui.core.shipment_workflow import (
+    CHECK_PRINTER_ADVICE,
+    PURCHASE_UNCERTAIN_MESSAGE,
     ShipmentWorkflowInput,
     ShipmentWorkflow,
     ShipmentWorkflowStatus,
@@ -91,19 +93,21 @@ class ShipmentWorker(
         """Execute the shipment workflow, reporting any unexpected crash."""
         try:
             self._run()
-        except Exception as error:  # pylint: disable=broad-exception-caught
+        except Exception:  # pylint: disable=broad-exception-caught
             # Never die silently: by now postage may have been bought and the
             # label may have been sent, so tell the volunteer rather than refund.
+            # Unused labels are refunded automatically, so trying again is safe.
             logger.exception("Shipment worker crashed")
-            shipment_id = getattr(self.shipment, "tracking_code", None) or getattr(
+            shipment_ref = getattr(self.shipment, "tracking_code", None) or getattr(
                 self.shipment, "id", None
             )
-            details = f" Shipment: {shipment_id}." if shipment_id else ""
-            self.error.emit(
-                f"Unexpected error: {error}.{details} Postage may already have "
-                "been bought and the label may have been sent to the printer - "
-                "check the printer and EasyPost before trying again."
-            )
+            if shipment_ref is None:
+                self.error.emit(PURCHASE_UNCERTAIN_MESSAGE)
+            else:
+                self.error.emit(
+                    "Something went wrong after postage was bought (tracking "
+                    f"{shipment_ref}). {CHECK_PRINTER_ADVICE}"
+                )
 
     def _run(self):
         self.progress.emit("Getting return address from the IBP server...")

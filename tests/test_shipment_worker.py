@@ -5,6 +5,10 @@ from types import SimpleNamespace
 from unittest import mock
 
 from shippy_gui.core.ibp_server import IbpServerError, IbpServerUnreachable
+from shippy_gui.core.shipment_workflow import (
+    CHECK_PRINTER_ADVICE,
+    PURCHASE_UNCERTAIN_MESSAGE,
+)
 from shippy_gui.workers.shipment_worker import (
     SERVER_BAD_ADDRESS_MESSAGE,
     SERVER_UNREACHABLE_MESSAGE,
@@ -41,8 +45,7 @@ class ShipmentWorkerCrashTests(unittest.TestCase):
         with self.assertLogs("shippy_gui.workers.shipment_worker", "ERROR"):
             worker.run()
 
-        self.assertEqual(len(errors), 1)
-        self.assertIn("boom", errors[0])
+        self.assertEqual(errors, [PURCHASE_UNCERTAIN_MESSAGE])
 
     def test_crash_after_purchase_names_shipment_and_does_not_refund(self):
         worker = self.make_worker()
@@ -57,8 +60,13 @@ class ShipmentWorkerCrashTests(unittest.TestCase):
         with self.assertLogs("shippy_gui.workers.shipment_worker", "ERROR"):
             worker.run()
 
-        self.assertEqual(len(errors), 1)
-        self.assertIn("9400TEST", errors[0])
+        self.assertEqual(
+            errors,
+            [
+                "Something went wrong after postage was bought (tracking "
+                f"9400TEST). {CHECK_PRINTER_ADVICE}"
+            ],
+        )
         worker.workflow.refund_after_failure.assert_not_called()
 
 
