@@ -43,8 +43,9 @@ class DialogPrintStatus(str, Enum):
 def get_available_printers() -> list[PrinterInfo]:
     """Get usable label printers, best first.
 
-    On Windows these are queues whose name ends in a USB ``VID:PID`` suffix and
-    whose USB device is present; on Linux every CUPS queue is listed.
+    Direct USB printers come first; on Windows these are followed by queues
+    whose name ends in a USB ``VID:PID`` suffix and whose USB device is
+    present. Linux has no queues.
 
     Returns:
         List of discovered printers. Empty list if none are found or on error.

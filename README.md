@@ -164,11 +164,12 @@ USB label printers are listed:
 - **Direct USB**: a supported printer (the PM2411BT the shipping laptops use)
   is printed to directly over USB, with no print queue or naming rule, and is
   listed first, e.g. `PM2411BT (USB direct, serial ...)`.
-- **Print queues** (win32print on Windows, CUPS on Linux): the queue name must
+- **Print queues** (Windows only, through win32print): the queue name must
   end with the printer's USB ID (e.g. `Zebra 20d1:7008`, `Zebra_20d1:7008` or
-  `Zebra-20d1:7008`; CUPS names cannot contain spaces) and that USB device
-  must be plugged in. Printers whose USB device or queue reports a problem are
-  still listed, just lower down.
+  `Zebra-20d1:7008`) and that USB device must be plugged in. Printers whose
+  USB device or queue reports a problem are still listed, just lower down.
+  Linux has no queues: only the direct USB printers print (`ibp-printing`
+  dropped CUPS on 2026-11-26).
 
 Shift + Click on "Create Label" uses the Qt system print dialog instead.
 Canceling that dialog refunds the postage. If printing cannot even start, the
@@ -280,19 +281,11 @@ Install Python 3.12+ and [uv](https://github.com/astral-sh/uv), then:
     uv sync
     ```
 
-    For platform-specific printing support, add the appropriate extra:
-
-    **Linux (CUPS):** installs `pycups` (needs the libcups development
-    headers; without it ibp-printing falls back to `lpstat`/`lp`)
-    ```bash
-    uv sync --extra linux
-    ```
-
-    **Windows (win32print):** `pywin32` and `WMI` are installed automatically on
-    Windows; the extra is kept for compatibility
-    ```bash
-    uv sync --extra windows
-    ```
+    Nothing platform-specific is needed: on Windows `pywin32` and `WMI` come
+    in automatically, and on Linux printing goes directly over USB (install
+    `ibp-printing`'s udev rule once; see its README). The `linux` and
+    `windows` extras are empty, kept so existing `uv sync --extra ...`
+    commands still work.
 
 4.  **Run it** from the folder with `config.ini`:
 
