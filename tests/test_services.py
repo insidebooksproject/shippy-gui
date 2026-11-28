@@ -15,8 +15,11 @@ from shippy_gui.core.models import ParcelConfig
 from shippy_gui.core.services import (
     PurchaseError,
     ShipmentService,
+    purchase_may_have_completed,
     small_box_problem,
 )
+
+errors = easypost.errors
 
 
 class ShipmentServiceTests(unittest.TestCase):
@@ -112,6 +115,20 @@ class ShipmentServiceTests(unittest.TestCase):
 
         self.assertIsInstance(caught.exception.__cause__, easypost.errors.HttpError)
 
+    def test_buy_turned_down_by_easypost_is_not_a_purchase_error(self):
+        for error in (
+            errors.PaymentError("insufficient funds", http_status=402),
+            errors.InvalidRequestError("rate expired", http_status=422),
+        ):
+            with self.subTest(error=type(error).__name__):
+                self.client.shipment.buy.side_effect = error
+                service = ShipmentService("ep_test", ParcelConfig())
+
+                with self.assertRaises(type(error)) as caught:
+                    service.buy_shipment("from_id", "to_id", 48.0)
+
+                self.assertIs(caught.exception, error)
+
     def test_failure_before_the_buy_request_is_not_a_purchase_error(self):
         self.client.shipment.create.side_effect = easypost.errors.HttpError("reset")
         service = ShipmentService("ep_test", ParcelConfig())
@@ -120,6 +137,28 @@ class ShipmentServiceTests(unittest.TestCase):
             service.buy_shipment("from_id", "to_id", 48.0)
 
         self.client.shipment.buy.assert_not_called()
+
+
+class PurchaseMayHaveCompletedTests(unittest.TestCase):
+    """Only a 4xx other than 408 means EasyPost turned the purchase down."""
+
+    def test_classification(self):
+        cases = [
+            (errors.HttpError("connection reset"), True),
+            (errors.TimeoutError("timed out"), True),
+            (errors.TimeoutError("timed out", http_status=408), True),
+            (errors.InternalServerError("oops", http_status=500), True),
+            (errors.ServiceUnavailableError("down", http_status=503), True),
+            (RuntimeError("unexpected"), True),
+            (errors.PaymentError("no funds", http_status=402), False),
+            (errors.InvalidRequestError("bad rate", http_status=422), False),
+            (errors.RateLimitError("slow down", http_status=429), False),
+        ]
+        for error, expected in cases:
+            with self.subTest(
+                error=type(error).__name__, status=error.__dict__.get("http_status")
+            ):
+                self.assertIs(purchase_may_have_completed(error), expected)
 
 
 class SmallBoxProblemTests(unittest.TestCase):

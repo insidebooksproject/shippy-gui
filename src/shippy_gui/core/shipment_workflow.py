@@ -35,6 +35,10 @@ NO_PRINTER_ERROR = "no label printer was plugged in when the label was created"
 NOT_BOUGHT_MESSAGE = (
     "The label could not be created. No postage was bought. Try this shipment again."
 )
+PAYMENT_FAILED_MESSAGE = (
+    "The label could not be created. The EasyPost account can't pay for "
+    "postage right now. Tell a coordinator; no postage was bought."
+)
 PURCHASE_UNCERTAIN_MESSAGE = (
     "The label could not be created. The purchase may not have completed. Try "
     "this shipment again; an unused label is refunded automatically."
@@ -170,12 +174,17 @@ class ShipmentWorkflow:  # pylint: disable=too-few-public-methods
                 status=ShipmentWorkflowStatus.ERROR,
                 message=PURCHASE_UNCERTAIN_MESSAGE,
             )
-        except Exception:  # pylint: disable=broad-exception-caught
+        except Exception as error:  # pylint: disable=broad-exception-caught
             if shipment is None:
-                logger.error("Shipment creation failed before buying", exc_info=True)
+                # Failed before the buy, or EasyPost turned the buy down (4xx).
+                logger.error("Shipment creation failed; nothing bought", exc_info=True)
                 return ShipmentWorkflowResult(
                     status=ShipmentWorkflowStatus.ERROR,
-                    message=NOT_BOUGHT_MESSAGE,
+                    message=(
+                        PAYMENT_FAILED_MESSAGE
+                        if _is_payment_error(error)
+                        else NOT_BOUGHT_MESSAGE
+                    ),
                 )
             # Postage was bought but there is no label image to print or save.
             logger.error("Label preparation failed after purchase", exc_info=True)
@@ -366,6 +375,14 @@ class ShipmentWorkflow:  # pylint: disable=too-few-public-methods
                 "label is refunded automatically.",
                 shipment=shipment,
             )
+
+
+def _is_payment_error(error: Exception) -> bool:
+    """Whether EasyPost refused the buy because the account can't pay (402)."""
+    return (
+        isinstance(error, easypost.errors.PaymentError)
+        or getattr(error, "http_status", None) == 402
+    )
 
 
 def _shipment_ref(shipment: Any) -> str:

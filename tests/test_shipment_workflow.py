@@ -19,6 +19,7 @@ from shippy_gui.core.shipment_workflow import (
     CHECK_PRINTER_ADVICE,
     LABEL_NOT_PREPARED_MESSAGE,
     NOT_BOUGHT_MESSAGE,
+    PAYMENT_FAILED_MESSAGE,
     PURCHASE_UNCERTAIN_MESSAGE,
     ShipmentWorkflowInput,
     ShipmentWorkflow,
@@ -473,6 +474,31 @@ class ShipmentWorkflowTests(unittest.TestCase):
         self.assertNotIn("EasyPost", result.message)
         self.assertIsInstance(record.exc_info[1], easypost.errors.HttpError)
         self.service.buy_shipment.assert_not_called()
+
+    def test_buy_turned_down_says_no_postage_was_bought(self):
+        # The service re-raises a 4xx from the buy request: nothing was bought.
+        for error, message in (
+            (
+                easypost.errors.InvalidRequestError("rate expired", http_status=422),
+                NOT_BOUGHT_MESSAGE,
+            ),
+            (
+                easypost.errors.PaymentError("insufficient funds", http_status=402),
+                PAYMENT_FAILED_MESSAGE,
+            ),
+        ):
+            with self.subTest(error=type(error).__name__):
+                self.service.reset_mock()
+                self.service.create_address.side_effect = [Mock(id="f"), Mock(id="t")]
+                self.service.buy_shipment.side_effect = error
+
+                result, record = self._prepare_failing()
+
+                self.assertEqual(result.status, ShipmentWorkflowStatus.ERROR)
+                self.assertEqual(result.message, message)
+                self.assertIs(record.exc_info[1], error)
+                self.service.refund_shipment.assert_not_called()
+                self.assertEqual(self.journal.purchases, [])
 
     def test_failed_buy_request_says_purchase_may_not_have_completed(self):
         self.service.create_address.side_effect = [Mock(id="f"), Mock(id="t")]

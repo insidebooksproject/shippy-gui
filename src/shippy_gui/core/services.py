@@ -20,11 +20,23 @@ from shippy_gui.core.models import AddressBase, ParcelConfig
 
 
 class PurchaseError(Exception):
-    """The buy request itself failed, so postage may or may not have been bought.
+    """The buy request failed in a way that may still have bought postage.
 
     The charge can go through even when the response is lost; the weekly
     refund job refunds any label that was bought but never used.
     """
+
+
+def purchase_may_have_completed(error: Exception) -> bool:
+    """Whether a buy request that raised ``error`` may still have bought postage.
+
+    A 4xx answer (other than 408, a timeout) means EasyPost turned the
+    purchase down, e.g. for an empty wallet. No answer, a timeout, a 5xx or
+    any other exception may have come after the charge went through.
+    """
+    status = getattr(error, "http_status", None)
+    refused = isinstance(status, int) and 400 <= status < 500 and status != 408
+    return not refused
 
 
 def small_box_problem(length: float, width: float, height: float) -> str:
@@ -79,8 +91,9 @@ class ShipmentService:
         configured, larger dimensions are declared.
 
         Raises:
-            PurchaseError: the buy request itself failed. Anything raised
-                before it (parcel, shipment, rates) means nothing was bought.
+            PurchaseError: the buy request failed and may still have bought
+                postage (see ``purchase_may_have_completed``). Anything else
+                raised, before or by the buy request, means nothing was bought.
         """
         if small_box:
             # Any qualifying box is declared as the 12 in cube, the top USPS
@@ -121,7 +134,9 @@ class ShipmentService:
         try:
             return self.client.shipment.buy(shipment.id, rate=rate)
         except Exception as error:
-            raise PurchaseError(str(error)) from error
+            if purchase_may_have_completed(error):
+                raise PurchaseError(str(error)) from error
+            raise
 
     def refund_shipment(self, shipment_id: str) -> None:
         """Refund a shipment."""
