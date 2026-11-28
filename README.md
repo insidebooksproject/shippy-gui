@@ -1,5 +1,13 @@
 # shippy-gui
 
+> **Moved (2026-11-28):** shippy-gui is now part of
+> [insidebooksproject/shippy](https://github.com/insidebooksproject/shippy),
+> with its history, as the `shippy[gui]` extra; the command is still
+> `shippy-gui`. Run it with
+> `uvx --from "shippy[gui] @ git+https://github.com/insidebooksproject/shippy.git@deploy" shippy-gui`.
+> This repo gets no more changes. Its `deploy` branch keeps working until the
+> shipping laptops have switched, then the repo will be archived.
+
 `shippy-gui` is the PySide6 app the Inside Books Project (IBP) shipping
 stations use to print shipping labels for books sent to people incarcerated in
 Texas when the address is typed in ("Ship Manual"). Packages for a scanned
