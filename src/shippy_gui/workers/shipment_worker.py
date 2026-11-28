@@ -5,7 +5,11 @@ from typing import Optional
 
 from PySide6.QtCore import QThread, Signal  # type: ignore[import-untyped] # pylint: disable=no-name-in-module
 
-from shippy_gui.core.ibp_server import IbpServerError, fetch_return_address
+from shippy_gui.core.ibp_server import (
+    IbpServerError,
+    IbpServerUnreachable,
+    fetch_return_address,
+)
 from shippy_gui.core.models import RecipientAddress
 from shippy_gui.core.services import ShipmentService
 from shippy_gui.core.shipment_workflow import (
@@ -15,6 +19,18 @@ from shippy_gui.core.shipment_workflow import (
 )
 
 logger = logging.getLogger(__name__)
+
+# What the volunteer is told when the return address can't be read; the
+# technical details go to the log.
+SERVER_UNREACHABLE_MESSAGE = (
+    "The IBP server can't be reached, so no postage was bought. Check that "
+    "this laptop is online, then try this shipment again."
+)
+SERVER_BAD_ADDRESS_MESSAGE = (
+    "The IBP server didn't send a usable return address, so no postage was "
+    "bought. Try this shipment again; if it keeps happening, the return "
+    "address in the IBP server's shipping settings needs fixing."
+)
 
 
 class ShipmentWorker(
@@ -94,11 +110,11 @@ class ShipmentWorker(
         try:
             from_address = fetch_return_address(self.ibp_url)
         except IbpServerError as error:
-            logger.error("Return address lookup failed: %s", error)
+            logger.error("Return address lookup failed", exc_info=True)
             self.error.emit(
-                f"Could not get the return address from the IBP server: {error}. "
-                "No postage was bought. Check that the IBP server is running "
-                "and the IBP URL in Settings, then try again."
+                SERVER_UNREACHABLE_MESSAGE
+                if isinstance(error, IbpServerUnreachable)
+                else SERVER_BAD_ADDRESS_MESSAGE
             )
             return
 

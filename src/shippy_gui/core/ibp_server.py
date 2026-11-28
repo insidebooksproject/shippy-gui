@@ -21,14 +21,20 @@ class IbpServerError(Exception):
     """The return address could not be read from the IBP server."""
 
 
+class IbpServerUnreachable(IbpServerError):
+    """The IBP server could not be reached or answered with an HTTP error."""
+
+
 def fetch_return_address(
     base_url: str, timeout: float = TIMEOUT_SECONDS
 ) -> ReturnAddressConfig:
     """Get the organization's return address from the IBP server.
 
     Raises:
-        IbpServerError: the server could not be reached, answered with an
-            error, or sent an address that is incomplete.
+        IbpServerUnreachable: the server could not be reached or answered
+            with an HTTP error.
+        IbpServerError: the server sent an address that is incomplete or a
+            response that isn't one.
     """
     url = urljoin(base_url.rstrip("/") + "/", SHIPPING_SETTINGS_PATH)
     try:
@@ -39,7 +45,7 @@ def fetch_return_address(
             {**address, "street2": address.get("street2") or ""}
         )
     except requests.RequestException as error:
-        raise IbpServerError(f"could not reach {url}: {error}") from error
+        raise IbpServerUnreachable(f"could not reach {url}: {error}") from error
     except (ValueError, KeyError, TypeError, AttributeError) as error:
         # ValidationError is a ValueError; so is a body that isn't JSON.
         detail = (
