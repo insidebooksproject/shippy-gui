@@ -5,6 +5,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import ANY, Mock, patch
 
+import easypost
 import ibp_printing
 from ibp_printing.labels import set_journal_path
 from PIL import Image
@@ -13,8 +14,12 @@ from journal_fakes import install_fake_journal
 
 from shippy_gui.core import label_journal
 from shippy_gui.core.models import RecipientAddress, ReturnAddressConfig
+from shippy_gui.core.services import PurchaseError
 from shippy_gui.core.shipment_workflow import (
     CHECK_PRINTER_ADVICE,
+    LABEL_NOT_PREPARED_MESSAGE,
+    NOT_BOUGHT_MESSAGE,
+    PURCHASE_UNCERTAIN_MESSAGE,
     ShipmentWorkflowInput,
     ShipmentWorkflow,
     ShipmentWorkflowStatus,
@@ -382,7 +387,7 @@ class ShipmentWorkflowTests(unittest.TestCase):
         self.assertIsNone(result.saved_label_path)
         self.assertIn("CreateDC failed", result.message)
         self.assertIn("disk full", result.message)
-        self.assertIn("Refund requested", result.message)
+        self.assertIn("Its postage is being refunded", result.message)
         self.service.refund_shipment.assert_called_once_with("shp_123")
         self.assertEqual(self.journal.statuses(), ["refunded"])
 
@@ -410,7 +415,11 @@ class ShipmentWorkflowTests(unittest.TestCase):
 
         self.assertEqual(result.status, ShipmentWorkflowStatus.ERROR)
         self.assertTrue(result.refund_requested)
-        self.assertIn("download failed", result.message)
+        self.assertEqual(
+            result.message,
+            f"{LABEL_NOT_PREPARED_MESSAGE}. Its postage is being refunded. Try "
+            "this shipment again.",
+        )
         self.service.refund_shipment.assert_called_once_with("shp_123")
         self.assertEqual(len(self.journal.purchases), 1)
         self.assertEqual(self.journal.statuses(), ["refunded"])
@@ -428,20 +437,54 @@ class ShipmentWorkflowTests(unittest.TestCase):
         self.assertTrue(result.refund_requested)
         self.service.refund_shipment.assert_called_once_with("shp_123")
 
+    def _prepare_failing(self):
+        """Prepare a label whose creation fails; return the result and log."""
+        with self.assertLogs("shippy_gui.core.shipment_workflow", "ERROR") as logs:
+            result = self.workflow.prepare_label(
+                ShipmentWorkflowInput(
+                    from_address=self.from_address,
+                    to_address=self.to_address,
+                    weight_lbs=2,
+                )
+            )
+        return result, logs.records[0]
+
     def test_prepare_label_does_not_refund_when_purchase_fails(self):
         self.service.create_address.side_effect = [Mock(id="f"), Mock(id="t")]
         self.service.buy_shipment.side_effect = RuntimeError("no rates")
 
-        result = self.workflow.prepare_label(
-            ShipmentWorkflowInput(
-                from_address=self.from_address,
-                to_address=self.to_address,
-                weight_lbs=2,
-            )
-        )
+        result, record = self._prepare_failing()
 
         self.assertEqual(result.status, ShipmentWorkflowStatus.ERROR)
-        self.assertIn("no rates", result.message)
+        self.assertEqual(result.message, NOT_BOUGHT_MESSAGE)
+        self.assertEqual(str(record.exc_info[1]), "no rates")
+        self.service.refund_shipment.assert_not_called()
+        self.assertEqual(self.journal.purchases, [])
+
+    def test_easypost_error_before_buying_says_no_postage_was_bought(self):
+        self.service.create_address.side_effect = easypost.errors.HttpError(
+            "Communication with EasyPost failed: connection reset"
+        )
+
+        result, record = self._prepare_failing()
+
+        self.assertEqual(result.status, ShipmentWorkflowStatus.ERROR)
+        self.assertEqual(result.message, NOT_BOUGHT_MESSAGE)
+        self.assertNotIn("EasyPost", result.message)
+        self.assertIsInstance(record.exc_info[1], easypost.errors.HttpError)
+        self.service.buy_shipment.assert_not_called()
+
+    def test_failed_buy_request_says_purchase_may_not_have_completed(self):
+        self.service.create_address.side_effect = [Mock(id="f"), Mock(id="t")]
+        self.service.buy_shipment.side_effect = PurchaseError("timed out")
+
+        result, record = self._prepare_failing()
+
+        self.assertEqual(result.status, ShipmentWorkflowStatus.ERROR)
+        self.assertEqual(result.message, PURCHASE_UNCERTAIN_MESSAGE)
+        self.assertIsInstance(record.exc_info[1], PurchaseError)
+        # No shipment came back, so there is nothing to refund or journal: the
+        # weekly refund job covers a charge that did go through.
         self.service.refund_shipment.assert_not_called()
         self.assertEqual(self.journal.purchases, [])
 
@@ -532,11 +575,16 @@ class ShipmentWorkflowTests(unittest.TestCase):
         shipment = Mock(id="shp_123")
         self.service.refund_shipment.side_effect = RuntimeError("refund failed")
 
-        result = self.workflow.refund_after_failure(shipment, "Printing error")
+        with self.assertLogs("shippy_gui.core.shipment_workflow", "ERROR"):
+            result = self.workflow.refund_after_failure(shipment, "Printing error")
 
         self.assertEqual(result.status, ShipmentWorkflowStatus.ERROR)
         self.assertFalse(result.refund_requested)
-        self.assertIn("Refund also failed", result.message)
+        self.assertEqual(
+            result.message,
+            "Printing error. Try this shipment again; the unused label is "
+            "refunded automatically.",
+        )
 
 
 if __name__ == "__main__":

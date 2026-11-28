@@ -562,7 +562,7 @@ class ShippingCoordinatorTests(unittest.TestCase):
 
         shipment_service.refund_shipment.assert_called_once_with("shp_123")
         mock_box.critical.assert_called_once()
-        self.assertIn("Refund requested", mock_box.critical.call_args.args[2])
+        self.assertIn("being refunded", mock_box.critical.call_args.args[2])
 
     @patch("shippy_gui.shipping_coordinators.QMessageBox")
     @patch("shippy_gui.core.shipment_workflow.ibp_printing.save_for_retry")

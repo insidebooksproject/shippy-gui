@@ -3,6 +3,8 @@
 import unittest
 from unittest.mock import patch
 
+import easypost
+
 from shippy_gui.core.constants import (
     PARCEL_PREDEFINED_PACKAGE,
     SMALL_BOX_HEIGHT_IN,
@@ -10,7 +12,11 @@ from shippy_gui.core.constants import (
     SMALL_BOX_WIDTH_IN,
 )
 from shippy_gui.core.models import ParcelConfig
-from shippy_gui.core.services import ShipmentService, small_box_problem
+from shippy_gui.core.services import (
+    PurchaseError,
+    ShipmentService,
+    small_box_problem,
+)
 
 
 class ShipmentServiceTests(unittest.TestCase):
@@ -95,6 +101,25 @@ class ShipmentServiceTests(unittest.TestCase):
             options={"special_rates_eligibility": "USPS.LIBRARYMAIL"},
             reference="ibp1:manual",
         )
+
+    def test_failed_buy_request_raises_purchase_error(self):
+        # The charge may have gone through even though the response was lost.
+        self.client.shipment.buy.side_effect = easypost.errors.HttpError("reset")
+        service = ShipmentService("ep_test", ParcelConfig())
+
+        with self.assertRaises(PurchaseError) as caught:
+            service.buy_shipment("from_id", "to_id", 48.0)
+
+        self.assertIsInstance(caught.exception.__cause__, easypost.errors.HttpError)
+
+    def test_failure_before_the_buy_request_is_not_a_purchase_error(self):
+        self.client.shipment.create.side_effect = easypost.errors.HttpError("reset")
+        service = ShipmentService("ep_test", ParcelConfig())
+
+        with self.assertRaises(easypost.errors.HttpError):
+            service.buy_shipment("from_id", "to_id", 48.0)
+
+        self.client.shipment.buy.assert_not_called()
 
 
 class SmallBoxProblemTests(unittest.TestCase):

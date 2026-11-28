@@ -19,6 +19,14 @@ from shippy_gui.core.constants import (
 from shippy_gui.core.models import AddressBase, ParcelConfig
 
 
+class PurchaseError(Exception):
+    """The buy request itself failed, so postage may or may not have been bought.
+
+    The charge can go through even when the response is lost; the weekly
+    refund job refunds any label that was bought but never used.
+    """
+
+
 def small_box_problem(length: float, width: float, height: float) -> str:
     """Why a box can't be declared as "small", or "" if it can.
 
@@ -69,6 +77,10 @@ class ShipmentService:
         ``small_box`` declares the parcel as a 12 in cube (at most one cubic
         foot), so Ground Advantage is priced on actual weight; otherwise the
         configured, larger dimensions are declared.
+
+        Raises:
+            PurchaseError: the buy request itself failed. Anything raised
+                before it (parcel, shipment, rates) means nothing was bought.
         """
         if small_box:
             # Any qualifying box is declared as the 12 in cube, the top USPS
@@ -106,7 +118,10 @@ class ShipmentService:
         )
 
         rate = shipment.lowest_rate([SHIPMENT_CARRIER])
-        return self.client.shipment.buy(shipment.id, rate=rate)
+        try:
+            return self.client.shipment.buy(shipment.id, rate=rate)
+        except Exception as error:
+            raise PurchaseError(str(error)) from error
 
     def refund_shipment(self, shipment_id: str) -> None:
         """Refund a shipment."""
