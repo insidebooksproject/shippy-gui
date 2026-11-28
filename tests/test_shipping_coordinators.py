@@ -507,6 +507,26 @@ class ShippingCoordinatorTests(unittest.TestCase):
         self.assertEqual(status_label.text(), "Print canceled. Refunded.")
         self.assertEqual(self.journal.status_updates, [("TRACK123", "refunded", None)])
 
+    @patch("shippy_gui.shipping_coordinators.QMessageBox")
+    @patch("shippy_gui.shipping_coordinators.print_image_with_dialog")
+    def test_dialog_cancel_refund_failure_is_left_to_the_refund_job(
+        self, mock_print_dialog, mock_box
+    ):
+        mock_print_dialog.return_value = DialogPrintStatus.CANCELED
+        shipment_service = Mock()
+        shipment_service.refund_shipment.side_effect = RuntimeError("HTTP 503")
+        coordinator, status_label, shipment = self._dialog_coordinator(shipment_service)
+
+        with self.assertLogs("shippy_gui.shipping_coordinators", "ERROR"):
+            coordinator._on_label_ready(object(), "Alpha 20d1:7008", shipment)
+
+        self.assertEqual(
+            status_label.text(),
+            "Print canceled. The unused label is refunded automatically.",
+        )
+        mock_box.critical.assert_not_called()
+        self.assertEqual(self.journal.status_updates, [])
+
     @patch("shippy_gui.shipping_coordinators.show_label_queued")
     @patch("shippy_gui.core.shipment_workflow.ibp_printing.save_for_retry")
     @patch("shippy_gui.shipping_coordinators.print_image_with_dialog")
